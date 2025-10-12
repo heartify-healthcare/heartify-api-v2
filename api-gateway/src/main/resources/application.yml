@@ -1,0 +1,78 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # Auth endpoints (no authentication required)
+            - id: auth-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - StripPrefix=1
+            
+            # User endpoints (authentication required)
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/users/**
+              filters:
+                - StripPrefix=1
+                - AuthenticationFilter
+            
+            # Device endpoints
+            - id: device-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/devices/**
+              filters:
+                - StripPrefix=1
+                - AuthenticationFilter
+          
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: "*"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders: "*"
+                allowCredentials: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-change-this-in-production-minimum-32-characters}
+  expiration: 86400000  # 24 hours in milliseconds
+  refresh-expiration: 604800000  # 7 days
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    com.healthcare: DEBUG
