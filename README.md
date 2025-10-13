@@ -1,8 +1,8 @@
-healthcare-microservices/
+heartify-microservices/
 ├── eureka-server/              # Service Discovery Server
 │   ├── src/
 │   │   └── main/
-│   │       ├── java/com/healthcare/eureka/
+│   │       ├── java/com/heartify/eureka/
 │   │       │   └── EurekaServerApplication.java
 │   │       └── resources/
 │   │           └── application.yml
@@ -12,7 +12,7 @@ healthcare-microservices/
 ├── api-gateway/                # API Gateway with JWT Filter
 │   ├── src/
 │   │   └── main/
-│   │       ├── java/com/healthcare/gateway/
+│   │       ├── java/com/heartify/gateway/
 │   │       │   ├── ApiGatewayApplication.java
 │   │       │   ├── config/
 │   │       │   │   └── SecurityConfig.java
@@ -28,7 +28,7 @@ healthcare-microservices/
 ├── user-service/               # Main Business Logic Service
 │   ├── src/
 │   │   └── main/
-│   │       ├── java/com/healthcare/userservice/
+│   │       ├── java/com/heartify/userservice/
 │   │       │   ├── UserServiceApplication.java
 │   │       │   ├── entity/
 │   │       │   │   ├── User.java

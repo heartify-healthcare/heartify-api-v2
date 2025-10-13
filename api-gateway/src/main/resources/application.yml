@@ -102,4 +102,4 @@ management:
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
-    com.healthcare: DEBUG
+    com.heartify: DEBUG

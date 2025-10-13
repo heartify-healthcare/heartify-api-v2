@@ -12,7 +12,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.healthcare</groupId>
+    <groupId>com.heartify</groupId>
     <artifactId>eureka-server</artifactId>
     <version>1.0.0</version>
     <name>Eureka Server</name>
