@@ -9,8 +9,6 @@ import com.heartify.userservice.dto.AuthDto;
 import com.heartify.userservice.dto.UserDto;
 import com.heartify.userservice.service.UserService;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/users")
 public class UserController {
@@ -23,12 +21,15 @@ public class UserController {
 
     // POST /users - Create user (Admin only)
     @PostMapping
-    public ResponseEntity<UserDto> createUser(
+    public ResponseEntity<?> createUser(
             @Valid @RequestBody UserDto.UserCreateRequest request,
             @RequestHeader("X-User-Role") String role) {
         
         if (!"ADMIN".equalsIgnoreCase(role)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(AuthDto.MessageResponse.builder()
+                            .message("Access denied. Admin privileges required.")
+                            .build());
         }
         
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
@@ -36,9 +37,12 @@ public class UserController {
 
     // GET /users - List all users (Admin only)
     @GetMapping
-    public ResponseEntity<List<UserDto>> listUsers(@RequestHeader("X-User-Role") String role) {
+    public ResponseEntity<?> listUsers(@RequestHeader("X-User-Role") String role) {
         if (!"ADMIN".equalsIgnoreCase(role)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(AuthDto.MessageResponse.builder()
+                            .message("Access denied. Admin privileges required.")
+                            .build());
         }
         
         return ResponseEntity.ok(userService.listUsers());
@@ -46,13 +50,16 @@ public class UserController {
 
     // GET /users/{id} - Get user by ID (Users can view own, admins can view any)
     @GetMapping("/{id}")
-    public ResponseEntity<UserDto> getUserById(
+    public ResponseEntity<?> getUserById(
             @PathVariable Long id,
             @RequestHeader("X-User-Id") Long currentUserId,
             @RequestHeader("X-User-Role") String role) {
         
         if (!"ADMIN".equalsIgnoreCase(role) && !currentUserId.equals(id)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(AuthDto.MessageResponse.builder()
+                            .message("Access denied. You can only view your own profile.")
+                            .build());
         }
         
         return ResponseEntity.ok(userService.getUserById(id));
@@ -66,14 +73,17 @@ public class UserController {
 
     // PATCH /users/{id} - Update user (Users can update own, admins can update any)
     @PatchMapping("/{id}")
-    public ResponseEntity<UserDto> updateUser(
+    public ResponseEntity<?> updateUser(
             @PathVariable Long id,
             @Valid @RequestBody UserDto.UpdateUserRequest request,
             @RequestHeader("X-User-Id") Long currentUserId,
             @RequestHeader("X-User-Role") String role) {
         
         if (!"ADMIN".equalsIgnoreCase(role) && !currentUserId.equals(id)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(AuthDto.MessageResponse.builder()
+                            .message("Access denied. You can only update your own profile.")
+                            .build());
         }
         
         return ResponseEntity.ok(userService.updateUser(id, request, role));
@@ -113,13 +123,16 @@ public class UserController {
 
     // DELETE /users/{id} - Delete user (Admin only)
     @DeleteMapping("/{id}")
-    public ResponseEntity<AuthDto.MessageResponse> deleteUser(
+    public ResponseEntity<?> deleteUser(
             @PathVariable Long id,
             @RequestHeader("X-User-Id") Long currentUserId,
             @RequestHeader("X-User-Role") String role) {
         
         if (!"ADMIN".equalsIgnoreCase(role)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(AuthDto.MessageResponse.builder()
+                            .message("Access denied. Admin privileges required.")
+                            .build());
         }
         
         // Prevent self-deletion
