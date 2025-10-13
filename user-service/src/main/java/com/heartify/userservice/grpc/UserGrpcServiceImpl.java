@@ -1,10 +1,5 @@
 package com.heartify.userservice.grpc;
 
-import com.heartify.userservice.grpc.GetUserByIdRequest;
-import com.heartify.userservice.grpc.UserGrpcServiceGrpc;
-import com.heartify.userservice.grpc.UserResponse;
-import com.heartify.userservice.grpc.ValidateUserRequest;
-import com.heartify.userservice.grpc.ValidateUserResponse;
 import com.heartify.userservice.entity.User;
 import com.heartify.userservice.repository.UserRepository;
 
