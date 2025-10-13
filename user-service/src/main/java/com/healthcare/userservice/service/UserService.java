@@ -3,8 +3,6 @@ package com.healthcare.userservice.service;
 import com.healthcare.userservice.dto.UserDto;
 import com.healthcare.userservice.entity.User;
 import com.healthcare.userservice.repository.UserRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
