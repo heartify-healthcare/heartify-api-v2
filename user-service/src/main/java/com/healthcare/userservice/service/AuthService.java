@@ -3,10 +3,8 @@ package com.healthcare.userservice.service;
 import com.healthcare.userservice.dto.AuthDto;
 import com.healthcare.userservice.dto.UserDto;
 import com.healthcare.userservice.entity.OtpVerification;
-import com.healthcare.userservice.entity.RefreshToken;
 import com.healthcare.userservice.entity.User;
 import com.healthcare.userservice.repository.OtpVerificationRepository;
-import com.healthcare.userservice.repository.RefreshTokenRepository;
 import com.healthcare.userservice.repository.UserRepository;
 import com.healthcare.userservice.util.JwtUtil;
 import jakarta.transaction.Transactional;
@@ -14,7 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Random;
 
 @Service
@@ -22,109 +20,124 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final OtpVerificationRepository otpRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
 
+    @Value("${otp.expiration}")
+    private Long otpExpiration; // 300 seconds = 5 minutes
+
     public AuthService(UserRepository userRepository,
-            OtpVerificationRepository otpRepository,
-            RefreshTokenRepository refreshTokenRepository,
-            PasswordEncoder passwordEncoder,
-            JwtUtil jwtUtil,
-            EmailService emailService) {
+                       OtpVerificationRepository otpRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtUtil jwtUtil,
+                       EmailService emailService) {
         this.userRepository = userRepository;
         this.otpRepository = otpRepository;
-        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.emailService = emailService;
     }
 
-    @Value("${otp.expiration}")
-    private Long otpExpiration;
-
-    @Value("${jwt.expiration}")
-    private Long jwtExpiration;
-
     @Transactional
     public AuthDto.MessageResponse register(AuthDto.RegisterRequest request) {
+        // Check if username exists
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("Username already exists");
+        }
+        
+        // Check if email exists
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already exists");
         }
+        
+        // Check if phone number exists
+        if (request.getPhonenumber() != null && !request.getPhonenumber().isEmpty()) {
+            if (userRepository.existsByPhonenumber(request.getPhonenumber())) {
+                throw new RuntimeException("Phone number already exists");
+            }
+        }
 
-        // Create user (not verified yet)
+        // Create user (unverified)
         User user = User.builder()
+                .username(request.getUsername())
                 .email(request.getEmail())
+                .phonenumber(request.getPhonenumber())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName())
-                .phoneNumber(request.getPhoneNumber())
                 .role(User.UserRole.USER)
                 .isVerified(false)
                 .status(User.UserStatus.ACTIVE)
                 .build();
 
-        userRepository.save(user);
+        user = userRepository.save(user);
 
-        // Generate and save OTP
-        String otpCode = generateOtpCode();
-        OtpVerification otp = OtpVerification.builder()
-                .email(request.getEmail())
-                .otpCode(otpCode)
-                .expiresAt(LocalDateTime.now().plusSeconds(otpExpiration / 1000))
-                .verified(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        otpRepository.save(otp);
-
-        // Send OTP via email
-        emailService.sendOtpEmail(request.getEmail(), otpCode);
+        // Send OTP
+        sendVerificationOtp(user);
 
         return AuthDto.MessageResponse.builder()
-                .message("Registration successful. Please check your email for OTP verification.")
+                .message("User registered successfully. Please check your email for verification code.")
+                .build();
+    }
+
+    @Transactional
+    public AuthDto.MessageResponse requestVerify(AuthDto.RequestVerifyRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getIsVerified()) {
+            throw new RuntimeException("User is already verified");
+        }
+
+        sendVerificationOtp(user);
+
+        return AuthDto.MessageResponse.builder()
+                .message("Verification code sent to your email")
                 .build();
     }
 
     @Transactional
     public AuthDto.MessageResponse verifyOtp(AuthDto.VerifyOtpRequest request) {
-        OtpVerification otp = otpRepository.findByEmailAndVerifiedFalse(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("OTP not found or already verified"));
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (otp.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (user.getIsVerified()) {
+            throw new RuntimeException("User is already verified");
+        }
+
+        // Find valid OTP
+        OtpVerification otp = otpRepository.findByUser_IdAndOtpCodeAndOtpUsedFalse(user.getId(), request.getOtpCode())
+                .orElseThrow(() -> new RuntimeException("Invalid or expired OTP"));
+
+        // Check if OTP is expired
+        long currentTime = Instant.now().getEpochSecond();
+        if (otp.getExpiredTime() < currentTime) {
             throw new RuntimeException("OTP has expired");
         }
 
-        if (!otp.getOtpCode().equals(request.getOtpCode())) {
-            throw new RuntimeException("Invalid OTP code");
-        }
-
-        // Mark OTP as verified
-        otp.setVerified(true);
+        // Mark OTP as used
+        otp.setOtpUsed(true);
         otpRepository.save(otp);
 
-        // Update user verification status
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // Mark user as verified
         user.setIsVerified(true);
         userRepository.save(user);
 
         return AuthDto.MessageResponse.builder()
-                .message("Email verified successfully. You can now login.")
+                .message("Account verified successfully")
                 .build();
     }
 
     @Transactional
     public AuthDto.AuthResponse login(AuthDto.LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("Invalid username or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new RuntimeException("Invalid username or password");
         }
 
         if (!user.getIsVerified()) {
-            throw new RuntimeException("Email not verified. Please verify your email first.");
+            throw new RuntimeException("Please verify your account before logging in");
         }
 
         if (user.getStatus() == User.UserStatus.INACTIVE) {
@@ -132,85 +145,97 @@ public class AuthService {
         }
 
         String accessToken = jwtUtil.generateToken(user);
-        String refreshToken = jwtUtil.generateRefreshToken(user);
-
-        // Save refresh token
-        RefreshToken refreshTokenEntity = RefreshToken.builder()
-                .token(refreshToken)
-                .user(user)
-                .expiresAt(LocalDateTime.now().plusSeconds(604800)) // 7 days
-                .revoked(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        refreshTokenRepository.save(refreshTokenEntity);
 
         return AuthDto.AuthResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(jwtExpiration)
+                .tokenType("bearer")
                 .user(UserDto.fromEntity(user))
                 .build();
     }
 
     @Transactional
-    public AuthDto.MessageResponse forgotPassword(AuthDto.ForgotPasswordRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public AuthDto.MessageResponse recoverPassword(AuthDto.RecoverPasswordRequest request) {
+        // Step 1: Find user by username
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("Username not found"));
 
-        // Generate OTP for password reset
-        String otpCode = generateOtpCode();
+        // Step 2: Validate email
+        if (!user.getEmail().equals(request.getEmail())) {
+            throw new RuntimeException("Email does not match");
+        }
 
-        // Delete old OTP if exists
-        otpRepository.deleteByEmail(request.getEmail());
+        // Step 3: Validate phone number
+        if (!user.getPhonenumber().equals(request.getPhoneNumber())) {
+            throw new RuntimeException("Phone number does not match");
+        }
 
+        // Generate new password (8 chars: uppercase + lowercase + digits)
+        String newPassword = generateRandomPassword();
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Send recovery email with new password
+        emailService.sendPasswordRecoveryEmail(user.getEmail(), user.getUsername(), newPassword);
+
+        return AuthDto.MessageResponse.builder()
+                .message("Password reset successfully. Please check your email for the new password.")
+                .build();
+    }
+
+    private void sendVerificationOtp(User user) {
+        // Invalidate old OTPs
+        otpRepository.invalidateUserOtps(user.getId());
+
+        // Generate 6-digit OTP
+        String otpCode = String.format("%06d", new Random().nextInt(999999));
+        
+        // Calculate expiration time (current time + 5 minutes)
+        long expiredTime = Instant.now().getEpochSecond() + otpExpiration;
+
+        // Save OTP
         OtpVerification otp = OtpVerification.builder()
-                .email(request.getEmail())
+                .user(user)
                 .otpCode(otpCode)
-                .expiresAt(LocalDateTime.now().plusSeconds(otpExpiration / 1000))
-                .verified(false)
-                .createdAt(LocalDateTime.now())
+                .expiredTime(expiredTime)
+                .otpUsed(false)
                 .build();
 
         otpRepository.save(otp);
-        emailService.sendOtpEmail(request.getEmail(), otpCode);
 
-        return AuthDto.MessageResponse.builder()
-                .message("Password reset OTP sent to your email")
-                .build();
+        // Send email
+        emailService.sendOtpEmail(user.getEmail(), user.getUsername(), otpCode);
     }
 
-    @Transactional
-    public AuthDto.AuthResponse refresh(AuthDto.RefreshTokenRequest request) {
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenAndRevokedFalse(request.getRefreshToken())
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
-
-        if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Refresh token has expired");
-        }
-
-        User user = refreshToken.getUser();
-        String newAccessToken = jwtUtil.generateToken(user);
-
-        return AuthDto.AuthResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(request.getRefreshToken())
-                .tokenType("Bearer")
-                .expiresIn(jwtExpiration)
-                .user(UserDto.fromEntity(user))
-                .build();
-    }
-
-    @Transactional
-    public AuthDto.MessageResponse logout(Long userId) {
-        refreshTokenRepository.deleteByUser_UserId(userId);
-        return AuthDto.MessageResponse.builder()
-                .message("Logged out successfully")
-                .build();
-    }
-
-    private String generateOtpCode() {
+    private String generateRandomPassword() {
+        String uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lowercase = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        
         Random random = new Random();
-        return "%06d".formatted(random.nextInt(999999));
+        StringBuilder password = new StringBuilder();
+        
+        // At least one of each
+        password.append(uppercase.charAt(random.nextInt(uppercase.length())));
+        password.append(lowercase.charAt(random.nextInt(lowercase.length())));
+        password.append(digits.charAt(random.nextInt(digits.length())));
+        
+        // Fill remaining 5 characters
+        String allChars = uppercase + lowercase + digits;
+        for (int i = 0; i < 5; i++) {
+            password.append(allChars.charAt(random.nextInt(allChars.length())));
+        }
+        
+        // Shuffle
+        char[] chars = password.toString().toCharArray();
+        for (int i = chars.length - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            char temp = chars[i];
+            chars[i] = chars[j];
+            chars[j] = temp;
+        }
+        
+        return new String(chars);
     }
 }

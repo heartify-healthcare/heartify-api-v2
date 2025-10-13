@@ -1,34 +1,37 @@
 package com.healthcare.userservice.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "otp_verifications")
+@Table(name = "otps")
 public class OtpVerification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     private OtpVerification() {
         // Private constructor for Builder pattern
     }
 
-    @Column(nullable = false, unique = true)
-    private String email;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    @Column(nullable = false)
+    @Column(name = "otp_code", nullable = false)
     private String otpCode;
 
-    @Column(nullable = false)
-    private LocalDateTime expiresAt;
+    @Column(name = "expired_time", nullable = false)
+    private Long expiredTime; // UNIX timestamp in seconds
 
-    @Column(nullable = false)
-    private Boolean verified = false;
+    @Column(name = "otp_used", nullable = false)
+    private Boolean otpUsed = false;
 
-    @Column(nullable = false)
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public Long getId() {
@@ -39,12 +42,12 @@ public class OtpVerification {
         this.id = id;
     }
 
-    public String getEmail() {
-        return email;
+    public User getUser() {
+        return user;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public String getOtpCode() {
@@ -55,20 +58,20 @@ public class OtpVerification {
         this.otpCode = otpCode;
     }
 
-    public LocalDateTime getExpiresAt() {
-        return expiresAt;
+    public Long getExpiredTime() {
+        return expiredTime;
     }
 
-    public void setExpiresAt(LocalDateTime expiresAt) {
-        this.expiresAt = expiresAt;
+    public void setExpiredTime(Long expiredTime) {
+        this.expiredTime = expiredTime;
     }
 
-    public Boolean getVerified() {
-        return verified;
+    public Boolean getOtpUsed() {
+        return otpUsed;
     }
 
-    public void setVerified(Boolean verified) {
-        this.verified = verified;
+    public void setOtpUsed(Boolean otpUsed) {
+        this.otpUsed = otpUsed;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -86,32 +89,27 @@ public class OtpVerification {
     public static class Builder {
         private final OtpVerification otpVerification;
 
-        private Builder() {
+        public Builder() {
             otpVerification = new OtpVerification();
         }
 
-        public Builder email(String email) {
-            otpVerification.email = email;
+        public Builder user(User user) {
+            otpVerification.setUser(user);
             return this;
         }
 
         public Builder otpCode(String otpCode) {
-            otpVerification.otpCode = otpCode;
+            otpVerification.setOtpCode(otpCode);
             return this;
         }
 
-        public Builder expiresAt(LocalDateTime expiresAt) {
-            otpVerification.expiresAt = expiresAt;
+        public Builder expiredTime(Long expiredTime) {
+            otpVerification.setExpiredTime(expiredTime);
             return this;
         }
 
-        public Builder verified(Boolean verified) {
-            otpVerification.verified = verified;
-            return this;
-        }
-
-        public Builder createdAt(LocalDateTime createdAt) {
-            otpVerification.createdAt = createdAt;
+        public Builder otpUsed(Boolean otpUsed) {
+            otpVerification.setOtpUsed(otpUsed);
             return this;
         }
 

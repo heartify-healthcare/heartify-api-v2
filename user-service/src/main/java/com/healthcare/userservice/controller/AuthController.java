@@ -1,10 +1,15 @@
 package com.healthcare.userservice.controller;
 
 import com.healthcare.userservice.dto.AuthDto;
+import com.healthcare.userservice.dto.UserDto;
+import com.healthcare.userservice.repository.UserRepository;
 import com.healthcare.userservice.service.AuthService;
+import com.healthcare.userservice.service.UserService;
+
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,9 +17,13 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.authService = authService;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/register")
@@ -22,8 +31,13 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
-    @PostMapping("/verify-otp")
-    public ResponseEntity<AuthDto.MessageResponse> verifyOtp(@Valid @RequestBody AuthDto.VerifyOtpRequest request) {
+    @PostMapping("/request-verify")
+    public ResponseEntity<AuthDto.MessageResponse> requestVerify(@Valid @RequestBody AuthDto.RequestVerifyRequest request) {
+        return ResponseEntity.ok(authService.requestVerify(request));
+    }
+
+    @PostMapping("/verify")
+    public ResponseEntity<AuthDto.MessageResponse> verify(@Valid @RequestBody AuthDto.VerifyOtpRequest request) {
         return ResponseEntity.ok(authService.verifyOtp(request));
     }
 
@@ -32,18 +46,14 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
-    @PostMapping("/forgot-password")
-    public ResponseEntity<AuthDto.MessageResponse> forgotPassword(@Valid @RequestBody AuthDto.ForgotPasswordRequest request) {
-        return ResponseEntity.ok(authService.forgotPassword(request));
+    @PostMapping("/recover-password")
+    public ResponseEntity<AuthDto.MessageResponse> recoverPassword(@Valid @RequestBody AuthDto.RecoverPasswordRequest request) {
+        return ResponseEntity.ok(authService.recoverPassword(request));
     }
 
-    @PostMapping("/refresh")
-    public ResponseEntity<AuthDto.AuthResponse> refresh(@Valid @RequestBody AuthDto.RefreshTokenRequest request) {
-        return ResponseEntity.ok(authService.refresh(request));
-    }
-
-    @PostMapping("/logout")
-    public ResponseEntity<AuthDto.MessageResponse> logout(@RequestHeader("X-User-Id") Long userId) {
-        return ResponseEntity.ok(authService.logout(userId));
+    @GetMapping("/me")
+    public ResponseEntity<UserDto> getCurrentUser(@RequestHeader("X-User-Id") Long userId) {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+        return ResponseEntity.ok(userService.getUserById(userId));
     }
 }

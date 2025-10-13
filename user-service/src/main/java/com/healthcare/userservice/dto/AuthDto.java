@@ -6,19 +6,29 @@ import jakarta.validation.constraints.Size;
 
 public class AuthDto {
 
+    // REGISTER REQUEST - updated to match Flask
     public static class RegisterRequest {
+        @NotBlank(message = "Username is required")
+        @Size(min = 3, message = "Username must be at least 3 characters")
+        private String username;
+
         @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
         private String email;
 
+        private String phonenumber;
+
         @NotBlank(message = "Password is required")
-        @Size(min = 8, message = "Password must be at least 8 characters")
+        @Size(min = 6, message = "Password must be at least 6 characters")
         private String password;
 
-        @NotBlank(message = "Full name is required")
-        private String fullName;
+        public String getUsername() {
+            return username;
+        }
 
-        private String phoneNumber;
+        public void setUsername(String username) {
+            this.username = username;
+        }
 
         public String getEmail() {
             return email;
@@ -28,6 +38,14 @@ public class AuthDto {
             this.email = email;
         }
 
+        public String getPhonenumber() {
+            return phonenumber;
+        }
+
+        public void setPhonenumber(String phonenumber) {
+            this.phonenumber = phonenumber;
+        }
+
         public String getPassword() {
             return password;
         }
@@ -35,30 +53,31 @@ public class AuthDto {
         public void setPassword(String password) {
             this.password = password;
         }
+    }
 
-        public String getFullName() {
-            return fullName;
+    // NEW: Request Verify OTP (resend OTP)
+    public static class RequestVerifyRequest {
+        @NotBlank(message = "Email is required")
+        @Email(message = "Invalid email format")
+        private String email;
+
+        public String getEmail() {
+            return email;
         }
 
-        public void setFullName(String fullName) {
-            this.fullName = fullName;
-        }
-
-        public String getPhoneNumber() {
-            return phoneNumber;
-        }
-
-        public void setPhoneNumber(String phoneNumber) {
-            this.phoneNumber = phoneNumber;
+        public void setEmail(String email) {
+            this.email = email;
         }
     }
 
+    // VERIFY OTP REQUEST - updated
     public static class VerifyOtpRequest {
         @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
         private String email;
 
         @NotBlank(message = "OTP code is required")
+        @Size(min = 6, max = 6, message = "OTP must be 6 digits")
         private String otpCode;
 
         public String getEmail() {
@@ -78,20 +97,20 @@ public class AuthDto {
         }
     }
 
+    // LOGIN REQUEST - updated to use username instead of email
     public static class LoginRequest {
-        @NotBlank(message = "Email is required")
-        @Email(message = "Invalid email format")
-        private String email;
+        @NotBlank(message = "Username is required")
+        private String username;
 
         @NotBlank(message = "Password is required")
         private String password;
 
-        public String getEmail() {
-            return email;
+        public String getUsername() {
+            return username;
         }
 
-        public void setEmail(String email) {
-            this.email = email;
+        public void setUsername(String username) {
+            this.username = username;
         }
 
         public String getPassword() {
@@ -103,10 +122,25 @@ public class AuthDto {
         }
     }
 
-    public static class ForgotPasswordRequest {
+    // NEW: Recover Password Request
+    public static class RecoverPasswordRequest {
+        @NotBlank(message = "Username is required")
+        private String username;
+
         @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
         private String email;
+
+        @NotBlank(message = "Phone number is required")
+        private String phoneNumber;
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
 
         public String getEmail() {
             return email;
@@ -115,26 +149,22 @@ public class AuthDto {
         public void setEmail(String email) {
             this.email = email;
         }
-    }
 
-    public static class RefreshTokenRequest {
-        @NotBlank(message = "Refresh token is required")
-        private String refreshToken;
-
-        public String getRefreshToken() {
-            return refreshToken;
+        public String getPhoneNumber() {
+            return phoneNumber;
         }
 
-        public void setRefreshToken(String refreshToken) {
-            this.refreshToken = refreshToken;
+        public void setPhoneNumber(String phoneNumber) {
+            this.phoneNumber = phoneNumber;
         }
     }
 
+    // REMOVE RefreshTokenRequest class - not needed in Flask version
+
+    // AUTH RESPONSE - updated
     public static class AuthResponse {
         private String accessToken;
-        private String refreshToken;
-        private String tokenType = "Bearer";
-        private Long expiresIn;
+        private String tokenType = "bearer";
         private UserDto user;
 
         private AuthResponse() {
@@ -145,16 +175,8 @@ public class AuthDto {
             return accessToken;
         }
 
-        public String getRefreshToken() {
-            return refreshToken;
-        }
-
         public String getTokenType() {
             return tokenType;
-        }
-
-        public Long getExpiresIn() {
-            return expiresIn;
         }
 
         public UserDto getUser() {
@@ -177,18 +199,8 @@ public class AuthDto {
                 return this;
             }
 
-            public Builder refreshToken(String refreshToken) {
-                authResponse.refreshToken = refreshToken;
-                return this;
-            }
-
             public Builder tokenType(String tokenType) {
                 authResponse.tokenType = tokenType;
-                return this;
-            }
-
-            public Builder expiresIn(Long expiresIn) {
-                authResponse.expiresIn = expiresIn;
                 return this;
             }
 
@@ -203,15 +215,16 @@ public class AuthDto {
         }
     }
 
+    // MESSAGE RESPONSE - same as before
     public static class MessageResponse {
         private String message;
 
-        public String getMessage() {
-            return message;
+        private MessageResponse() {
+            // Private constructor for Builder pattern
         }
 
-        public void setMessage(String message) {
-            this.message = message;
+        public String getMessage() {
+            return message;
         }
 
         public static Builder builder() {

@@ -10,31 +10,59 @@ spring:
         webflux:
           routes:
             # Auth endpoints (no authentication required)
-            - id: auth-service
+            - id: auth-register
               uri: lb://user-service
               predicates:
-                - Path=/api/auth/**
+                - Path=/api/auth/register
               filters:
                 - StripPrefix=1
-            
+
+            - id: auth-request-verify
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/request-verify
+              filters:
+                - StripPrefix=1
+
+            - id: auth-verify
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/verify
+              filters:
+                - StripPrefix=1
+
+            - id: auth-login
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/login
+              filters:
+                - StripPrefix=1
+
+            - id: auth-recover-password
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/recover-password
+              filters:
+                - StripPrefix=1
+
+            # Auth /me endpoint (authentication required)
+            - id: auth-me
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/me
+              filters:
+                - StripPrefix=1
+                - AuthenticationFilter
+
             # User endpoints (authentication required)
-            - id: user-service
+            - id: user-service-users
               uri: lb://user-service
               predicates:
                 - Path=/api/users/**
               filters:
                 - StripPrefix=1
                 - AuthenticationFilter
-            
-            # Device endpoints
-            - id: device-service
-              uri: lb://user-service
-              predicates:
-                - Path=/api/devices/**
-              filters:
-                - StripPrefix=1
-                - AuthenticationFilter
-          
+
           globalcors:
             cors-configurations:
               '[/**]':
@@ -61,7 +89,6 @@ eureka:
 jwt:
   secret: ${JWT_SECRET:your-256-bit-secret-key-change-this-in-production-minimum-32-characters}
   expiration: 86400000  # 24 hours in milliseconds
-  refresh-expiration: 604800000  # 7 days
 
 management:
   endpoints:

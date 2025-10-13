@@ -1,8 +1,15 @@
 package com.healthcare.userservice.service;
 
-import org.springframework.mail.SimpleMailMessage;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 @Service
 public class EmailService {
@@ -13,16 +20,43 @@ public class EmailService {
         this.mailSender = mailSender;
     }
 
-    public void sendOtpEmail(String to, String otpCode) {
+    public void sendOtpEmail(String to, String username, String otpCode) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject("Healthcare App - Email Verification");
-            message.setText("Your OTP code is: " + otpCode + "\n\nThis code will expire in 5 minutes.");
-            
-            mailSender.send(message);
+            String htmlContent = loadTemplate("templates/otp.html");
+            htmlContent = htmlContent.replace("{{ username }}", username);
+            htmlContent = htmlContent.replace("{{ otp }}", otpCode);
+
+            sendHtmlEmail(to, "Verify Your Account", htmlContent);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send OTP email");
+            throw new RuntimeException("Failed to send OTP email: " + e.getMessage());
         }
+    }
+
+    public void sendPasswordRecoveryEmail(String to, String username, String newPassword) {
+        try {
+            String htmlContent = loadTemplate("templates/password_recovery.html");
+            htmlContent = htmlContent.replace("{{ username }}", username);
+            htmlContent = htmlContent.replace("{{ newPassword }}", newPassword);
+
+            sendHtmlEmail(to, "Password Recovery - Heartify", htmlContent);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send password recovery email: " + e.getMessage());
+        }
+    }
+
+    private void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+        
+        helper.setTo(to);
+        helper.setSubject(subject);
+        helper.setText(htmlContent, true); // true = HTML
+        
+        mailSender.send(message);
+    }
+
+    private String loadTemplate(String templatePath) throws IOException {
+        ClassPathResource resource = new ClassPathResource(templatePath);
+        return new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
     }
 }

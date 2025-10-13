@@ -1,13 +1,14 @@
 package com.healthcare.userservice.controller;
 
+import com.healthcare.userservice.dto.AuthDto;
 import com.healthcare.userservice.dto.UserDto;
 import com.healthcare.userservice.service.UserService;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/users")
@@ -19,52 +20,116 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping("/me")
-    public ResponseEntity<UserDto> getCurrentUser(@RequestHeader("X-User-Id") Long userId) {
-        return ResponseEntity.ok(userService.getCurrentUser(userId));
+    // POST /users - Create user (Admin only)
+    @PostMapping
+    public ResponseEntity<UserDto> createUser(
+            @Valid @RequestBody UserDto.UserCreateRequest request,
+            @RequestHeader("X-User-Role") String role) {
+        
+        if (!"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
     }
 
-    @PatchMapping("/me")
-    public ResponseEntity<UserDto> updateCurrentUser(
-            @RequestHeader("X-User-Id") Long userId,
-            @Valid @RequestBody UserDto.UpdateUserRequest request) {
-        return ResponseEntity.ok(userService.updateCurrentUser(userId, request));
+    // GET /users - List all users (Admin only)
+    @GetMapping
+    public ResponseEntity<List<UserDto>> listUsers(@RequestHeader("X-User-Role") String role) {
+        if (!"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        return ResponseEntity.ok(userService.listUsers());
     }
 
+    // GET /users/{id} - Get user by ID (Users can view own, admins can view any)
     @GetMapping("/{id}")
     public ResponseEntity<UserDto> getUserById(
             @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long currentUserId,
             @RequestHeader("X-User-Role") String role) {
-        // Only CLINICIAN and ADMIN can view other users
-        if (!role.equals("CLINICIAN") && !role.equals("ADMIN")) {
-            return ResponseEntity.status(403).build();
+        
+        if (!"ADMIN".equalsIgnoreCase(role) && !currentUserId.equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
-    @GetMapping
-    public ResponseEntity<Page<UserDto>> getAllUsers(
-            @RequestHeader("X-User-Role") String role,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String roleFilter) {
-        // Only ADMIN can view all users
-        if (!role.equals("ADMIN")) {
-            return ResponseEntity.status(403).build();
-        }
-        Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(userService.getAllUsers(pageable, roleFilter));
+    // GET /users/profile - Get current user's profile
+    @GetMapping("/profile")
+    public ResponseEntity<UserDto> getCurrentUserProfile(@RequestHeader("X-User-Id") Long userId) {
+        return ResponseEntity.ok(userService.getUserById(userId));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(
+    // PATCH /users/{id} - Update user (Users can update own, admins can update any)
+    @PatchMapping("/{id}")
+    public ResponseEntity<UserDto> updateUser(
             @PathVariable Long id,
+            @Valid @RequestBody UserDto.UpdateUserRequest request,
+            @RequestHeader("X-User-Id") Long currentUserId,
             @RequestHeader("X-User-Role") String role) {
-        // Only ADMIN can delete users
-        if (!role.equals("ADMIN")) {
-            return ResponseEntity.status(403).build();
+        
+        if (!"ADMIN".equalsIgnoreCase(role) && !currentUserId.equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        
+        return ResponseEntity.ok(userService.updateUser(id, request, role));
+    }
+
+    // PATCH /users/profile - Update current user's profile
+    @PatchMapping("/profile")
+    public ResponseEntity<UserDto> updateCurrentUserProfile(
+            @Valid @RequestBody UserDto.UpdateUserRequest request,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role) {
+        
+        return ResponseEntity.ok(userService.updateUser(userId, request, role));
+    }
+
+    // PATCH /users/profile/health - Update current user's health info
+    @PatchMapping("/profile/health")
+    public ResponseEntity<UserDto> updateCurrentUserHealth(
+            @Valid @RequestBody UserDto.UserHealthUpdateRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+        
+        return ResponseEntity.ok(userService.updateUserHealth(userId, request));
+    }
+
+    // PUT /users/change-password - Change current user's password
+    @PutMapping("/change-password")
+    public ResponseEntity<AuthDto.MessageResponse> changePassword(
+            @Valid @RequestBody UserDto.ChangePasswordRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+        
+        userService.changePassword(userId, request);
+        
+        return ResponseEntity.ok(AuthDto.MessageResponse.builder()
+                .message("Password changed successfully")
+                .build());
+    }
+
+    // DELETE /users/{id} - Delete user (Admin only)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<AuthDto.MessageResponse> deleteUser(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long currentUserId,
+            @RequestHeader("X-User-Role") String role) {
+        
+        if (!"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        // Prevent self-deletion
+        if (currentUserId.equals(id)) {
+            throw new RuntimeException("You cannot delete your own account");
+        }
+        
         userService.deleteUser(id);
-        return ResponseEntity.noContent().build();
+        
+        return ResponseEntity.ok(AuthDto.MessageResponse.builder()
+                .message("User deleted successfully")
+                .build());
     }
 }

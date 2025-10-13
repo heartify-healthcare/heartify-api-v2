@@ -37,7 +37,7 @@ public class JwtUtil {
     }
 
     public Long extractUserId(String token) {
-        return extractAllClaims(token).get("userId", Long.class);
+        return extractAllClaims(token).get("user_id", Long.class);
     }
 
     public boolean isTokenExpired(String token) {

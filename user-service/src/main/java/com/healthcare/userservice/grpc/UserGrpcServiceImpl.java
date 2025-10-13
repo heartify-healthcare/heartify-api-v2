@@ -22,9 +22,8 @@ public class UserGrpcServiceImpl extends UserGrpcServiceGrpc.UserGrpcServiceImpl
         
         if (user != null) {
             responseBuilder
-                .setUserId(user.getUserId())
+                .setUserId(user.getId())
                 .setEmail(user.getEmail())
-                .setFullName(user.getFullName())
                 .setRole(user.getRole().name())
                 .setIsVerified(user.getIsVerified())
                 .setStatus(user.getStatus().name());
@@ -43,7 +42,7 @@ public class UserGrpcServiceImpl extends UserGrpcServiceGrpc.UserGrpcServiceImpl
         if (user != null && user.getIsVerified() && user.getStatus() == User.UserStatus.ACTIVE) {
             responseBuilder
                 .setValid(true)
-                .setUserId(user.getUserId())
+                .setUserId(user.getId())
                 .setRole(user.getRole().name());
         } else {
             responseBuilder.setValid(false);
