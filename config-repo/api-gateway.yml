@@ -1,0 +1,105 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # Auth endpoints (no authentication required)
+            - id: auth-register
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/register
+              filters:
+                - StripPrefix=1
+
+            - id: auth-request-verify
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/request-verify
+              filters:
+                - StripPrefix=1
+
+            - id: auth-verify
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/verify
+              filters:
+                - StripPrefix=1
+
+            - id: auth-login
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/login
+              filters:
+                - StripPrefix=1
+
+            - id: auth-recover-password
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/recover-password
+              filters:
+                - StripPrefix=1
+
+            # Auth /me endpoint (authentication required)
+            - id: auth-me
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/me
+              filters:
+                - StripPrefix=1
+                - AuthenticationFilter
+
+            # User endpoints (authentication required)
+            - id: user-service-users
+              uri: lb://user-service
+              predicates:
+                - Path=/api/users/**
+              filters:
+                - StripPrefix=1
+                - AuthenticationFilter
+
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: "*"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders: "*"
+                allowCredentials: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-change-this-in-production-minimum-32-characters}
+  expiration: 86400000  # 24 hours in milliseconds
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    com.heartify: DEBUG

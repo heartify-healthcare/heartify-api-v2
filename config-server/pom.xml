@@ -13,9 +13,9 @@
     </parent>
 
     <groupId>com.heartify</groupId>
-    <artifactId>eureka-server</artifactId>
+    <artifactId>config-server</artifactId>
     <version>1.0.0</version>
-    <name>Eureka Server</name>
+    <name>Config Server</name>
 
     <properties>
         <java.version>21</java.version>
@@ -23,21 +23,16 @@
     </properties>
 
     <dependencies>
+        <!-- Spring Cloud Config Server -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+            <artifactId>spring-cloud-config-server</artifactId>
         </dependency>
 
-        <!-- Spring Cloud Config Client -->
+        <!-- Actuator for monitoring -->
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-config</artifactId>
-        </dependency>
-
-        <!-- Spring Cloud Bootstrap for loading bootstrap.yml -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-bootstrap</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
     </dependencies>
 
