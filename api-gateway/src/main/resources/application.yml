@@ -1,0 +1,4 @@
+# Other configuration is loaded from Config Server
+spring:
+  application:
+    name: api-gateway

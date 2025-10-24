@@ -1,0 +1,31 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: ../config-repo
+  profiles:
+    active: native
+  security:
+    user:
+      name: ${CONFIG_SERVER_USERNAME:heartify}
+      password: ${CONFIG_SERVER_PASSWORD:heartify}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.config: DEBUG
+    com.heartify: DEBUG
