@@ -11,6 +11,10 @@ spring:
           search-locations: ../config-repo
   profiles:
     active: native
+  security:
+    user:
+      name: ${CONFIG_SERVER_USERNAME:heartify}
+      password: ${CONFIG_SERVER_PASSWORD:heartify}
 
 management:
   endpoints:

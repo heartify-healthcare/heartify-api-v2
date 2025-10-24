@@ -29,6 +29,12 @@
             <artifactId>spring-cloud-config-server</artifactId>
         </dependency>
 
+        <!-- Spring Security for authentication -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
         <!-- Actuator for monitoring -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
