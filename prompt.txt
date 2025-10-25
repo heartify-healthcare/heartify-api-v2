@@ -1,0 +1,27 @@
+Bây giờ bạn hãy là một Backend Developer chuyên nghiệp hỗ trợ tôi thêm một Microservice là AI Service (sử dụng MongoDB) vào hệ thống Backend sử dụng Spring Boot Microservices của tôi.
+
+Ngữ cảnh:
+1. Toàn bộ các file trong project của tôi (bạn có thể đọc được).
+2 Tôi đã triển khai thành công các thành phần sau: API Gateway (api-gateway), Discovery Server (eureka-server), Config Server (config-server), User Service (user-service) và chúng cũng đã hoạt động ổn thỏa hết rồi.
+3. Bạn cần phải lưu ý đặc biệt cấu trúc database của tôi được lưu trong file entity_relationship.txt.
+4. Về luồng hoạt động chính của AI Service này (phần này để bạn hiểu rõ luồng hoạt động của hệ thống để có thể làm các API Endpoints tốt hơn, và đây cũng được xem là một endpoint quan trọng nhất trong hệ thống của tôi):
+    - Người dùng thực hiện đo tín hiệu ECG ở Frontend và xác nhận gửi đến server để dự đoán.
+    - Sau khi tín hiệu ECG được xử lý ở tầng Edge Computing thì tín hiệu gốc (raw_data) và tín hiệu đã khử nhiễu (denoised_data) sẽ được gửi đến Backend server. Kèm theo đó là sampling_rate và device_id.
+    - Sau khi tín hiệu đến được Backend server, thông qua API Gateway và đến được AI Service thì sẽ thực hiện gọi API đến một Backend server khác (gửi denoised_data đi) để thực hiện dự đoán và lấy kết quả. Kết quả trả về là: model_version, diagnosis, probability, features. Tuy nhiên ở bước này bạn chỉ cần để lại một câu comment dặn dò tôi sẽ thực hiện sau này là được. Bởi vì mô hình AI này chưa được triển khai. Và nếu cần kết quả trả về thì bạn có thể tạo một data record giả để có thể tiếp tục các bước sau này là được.
+    - Sau khi có được kết quả từ mô hình AI thì tiếp tục các dữ liệu này (diagnosis, probability, features) sẽ được gửi đến một Backend server khác nữa bằng cách gọi API dưới dạng một MCP Prompt (prompt). Kết quả từ mô hình này trả về sẽ là: llm_model_version, explanation. Và vẫn như cũ, ở bước này bạn chỉ cần để lại một câu comment dặn dò tôi sẽ thực hiện sau này là được. Bởi vì mô hình AI này chưa được triển khai. Và nếu cần kết quả trả về thì bạn có thể tạo một data record giả để có thể tiếp tục các bước sau này là được.
+    - Sau khi thông qua được toàn bộ các bước trên và thành công, thì sẽ bắt đầu thêm các dữ liệu vào các bảng: ECGRecording, Prediction, Explanation và ECGSession. Còn nếu xảy ra lỗi ở một bước nào đó thì sẽ trả về cho người dùng lỗi Internal Server Error.
+5. Cách mà tôi muốn quản lý và khởi tạo các endpoints là:
+    - /ecg-sessions sẽ có các endpoints: 2 GET, 1 POST, 1 DELETE. Trong đó, GET thứ nhất là để lấy các ECG Session (có pagination), GET thứ hai để lấy thông tin chi tiết của ECG Session đó dựa trên ID, POST chính là API Endpoint quan trọng mà tôi đã trình bày ở trên, và DELETE đơn giản là DELETE 1 ECG Session dựa trên ID.
+    - Tương tự với các /ecg-recordings, /predictions, /explanations sẽ có các endpoint là: 1 GET, 1 POST 1 DELETE với các tính năng tương tự như trên (1 GET duy nhất này là GET lấy thông tin chi tiết của Object tương ứng dựa trên ID).
+
+Yêu cầu:
+1. Bạn hãy giúp tôi dựa vào cấu trúc project của một Microservice là User Service và thực hiện khởi tạo cho tôi một Microservice mới là AI Service (ai-service) để có thể triển khai các endpoints liên quan đến các tác vụ thao tác với AI.
+2. Bạn hãy thêm và docker-compose.yml một service để tôi có thể chạy MongoDB lên bằng Docker Compose.
+
+Lưu ý:
+1. Trong User Service tôi không có sử dụng lombok, vì lombok hiện tại đang bị lỗi rất nhiều.
+2. MongoDB được chạy lên cần phải có username và mật khẩu là heartify:heartify.
+3. Bạn hãy chú ý các phiên bản trong các file pom.xml như là Spring Boot, JDK, Spring Cloud, etc sau đó thực hiện khởi tạo AI Service để tránh hiện tượng xung đột phiên bản.
+4. Bạn không cần phải làm phức tạp hóa mà chỉ cần dựa vào những thứ đã làm ở User Service để có thể tiếp tục làm để tạo sự tương thích giữa User Service và AI Service này. Hoặc trong trường hợp bắt buộc phải thêm gì đó mới nếu không sẽ khiến cho tác vụ khó hơn thì bạn có thể thêm vào.
+
+Bạn hãy giúp tôi thực hiện nhé. Cảm ơn bạn!
