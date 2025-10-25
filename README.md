@@ -1,7 +1,7 @@
 # How to run
 ## Clone the repository for your life
 ```bash
-git clone https://github.com/votranphi/heartistry-api-v2
+git clone https://github.com/heartify-healthcare/heartify-api-v2
 cd heartistry-api-v2
 git submodule update --init --recursive
 ```
