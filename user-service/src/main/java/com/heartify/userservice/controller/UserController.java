@@ -9,6 +9,8 @@ import com.heartify.userservice.dto.AuthDto;
 import com.heartify.userservice.dto.UserDto;
 import com.heartify.userservice.service.UserService;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/users")
 public class UserController {
@@ -51,9 +53,11 @@ public class UserController {
     // GET /users/{id} - Get user by ID (Users can view own, admins can view any)
     @GetMapping("/{id}")
     public ResponseEntity<?> getUserById(
-            @PathVariable Long id,
-            @RequestHeader("X-User-Id") Long currentUserId,
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String currentUserIdStr,
             @RequestHeader("X-User-Role") String role) {
+        
+        UUID currentUserId = UUID.fromString(currentUserIdStr);
         
         if (!"ADMIN".equalsIgnoreCase(role) && !currentUserId.equals(id)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -67,17 +71,20 @@ public class UserController {
 
     // GET /users/profile - Get current user's profile
     @GetMapping("/profile")
-    public ResponseEntity<UserDto> getCurrentUserProfile(@RequestHeader("X-User-Id") Long userId) {
+    public ResponseEntity<UserDto> getCurrentUserProfile(@RequestHeader("X-User-Id") String userIdStr) {
+        UUID userId = UUID.fromString(userIdStr);
         return ResponseEntity.ok(userService.getUserById(userId));
     }
 
     // PATCH /users/{id} - Update user (Users can update own, admins can update any)
     @PatchMapping("/{id}")
     public ResponseEntity<?> updateUser(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody UserDto.UpdateUserRequest request,
-            @RequestHeader("X-User-Id") Long currentUserId,
+            @RequestHeader("X-User-Id") String currentUserIdStr,
             @RequestHeader("X-User-Role") String role) {
+        
+        UUID currentUserId = UUID.fromString(currentUserIdStr);
         
         if (!"ADMIN".equalsIgnoreCase(role) && !currentUserId.equals(id)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -93,9 +100,10 @@ public class UserController {
     @PatchMapping("/profile")
     public ResponseEntity<UserDto> updateCurrentUserProfile(
             @Valid @RequestBody UserDto.UpdateUserRequest request,
-            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Id") String userIdStr,
             @RequestHeader("X-User-Role") String role) {
         
+        UUID userId = UUID.fromString(userIdStr);
         return ResponseEntity.ok(userService.updateUser(userId, request, role));
     }
 
@@ -103,8 +111,9 @@ public class UserController {
     @PatchMapping("/profile/health")
     public ResponseEntity<UserDto> updateCurrentUserHealth(
             @Valid @RequestBody UserDto.UserHealthUpdateRequest request,
-            @RequestHeader("X-User-Id") Long userId) {
+            @RequestHeader("X-User-Id") String userIdStr) {
         
+        UUID userId = UUID.fromString(userIdStr);
         return ResponseEntity.ok(userService.updateUserHealth(userId, request));
     }
 
@@ -112,8 +121,9 @@ public class UserController {
     @PutMapping("/change-password")
     public ResponseEntity<AuthDto.MessageResponse> changePassword(
             @Valid @RequestBody UserDto.ChangePasswordRequest request,
-            @RequestHeader("X-User-Id") Long userId) {
+            @RequestHeader("X-User-Id") String userIdStr) {
         
+        UUID userId = UUID.fromString(userIdStr);
         userService.changePassword(userId, request);
         
         return ResponseEntity.ok(AuthDto.MessageResponse.builder()
@@ -124,9 +134,11 @@ public class UserController {
     // DELETE /users/{id} - Delete user (Admin only)
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteUser(
-            @PathVariable Long id,
-            @RequestHeader("X-User-Id") Long currentUserId,
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String currentUserIdStr,
             @RequestHeader("X-User-Role") String role) {
+        
+        UUID currentUserId = UUID.fromString(currentUserIdStr);
         
         if (!"ADMIN".equalsIgnoreCase(role)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)

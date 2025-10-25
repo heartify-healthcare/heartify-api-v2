@@ -12,11 +12,11 @@ service UserGrpcService {
 }
 
 message GetUserByIdRequest {
-  int64 user_id = 1;
+  string user_id = 1;
 }
 
 message UserResponse {
-  int64 user_id = 1;
+  string user_id = 1;
   string email = 2;
   string full_name = 3;
   string role = 4;
@@ -30,6 +30,6 @@ message ValidateUserRequest {
 
 message ValidateUserResponse {
   bool valid = 1;
-  int64 user_id = 2;
+  string user_id = 2;
   string role = 3;
 }

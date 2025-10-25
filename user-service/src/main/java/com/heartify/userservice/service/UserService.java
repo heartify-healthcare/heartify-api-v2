@@ -9,6 +9,7 @@ import com.heartify.userservice.entity.User;
 import com.heartify.userservice.repository.UserRepository;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -64,14 +65,14 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    public UserDto getUserById(Long userId) {
+    public UserDto getUserById(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return UserDto.fromEntity(user);
     }
 
     @Transactional
-    public UserDto updateUser(Long userId, UserDto.UpdateUserRequest request, String currentUserRole) {
+    public UserDto updateUser(UUID userId, UserDto.UpdateUserRequest request, String currentUserRole) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -124,7 +125,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserDto updateUserHealth(Long userId, UserDto.UserHealthUpdateRequest request) {
+    public UserDto updateUserHealth(UUID userId, UserDto.UserHealthUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -139,7 +140,7 @@ public class UserService {
     }
 
     @Transactional
-    public void changePassword(Long userId, UserDto.ChangePasswordRequest request) {
+    public void changePassword(UUID userId, UserDto.ChangePasswordRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -152,7 +153,7 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteUser(Long userId) {
+    public void deleteUser(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         userRepository.delete(user);

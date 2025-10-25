@@ -12,6 +12,8 @@ import com.heartify.userservice.repository.UserRepository;
 import com.heartify.userservice.service.AuthService;
 import com.heartify.userservice.service.UserService;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -52,7 +54,8 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UserDto> getCurrentUser(@RequestHeader("X-User-Id") Long userId) {
+    public ResponseEntity<UserDto> getCurrentUser(@RequestHeader("X-User-Id") String userIdStr) {
+        UUID userId = UUID.fromString(userIdStr);
         UserService userService = new UserService(userRepository, passwordEncoder);
         return ResponseEntity.ok(userService.getUserById(userId));
     }

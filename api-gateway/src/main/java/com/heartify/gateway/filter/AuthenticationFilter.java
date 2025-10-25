@@ -48,11 +48,11 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                 // Extract user information and add to headers for downstream services
                 String username = jwtUtil.extractUsername(token);
                 String role = jwtUtil.extractRole(token);
-                Long userId = jwtUtil.extractUserId(token);
+                String userId = jwtUtil.extractUserId(token);
 
                 // Add user information to request headers
                 ServerHttpRequest modifiedRequest = request.mutate()
-                        .header("X-User-Id", String.valueOf(userId))
+                        .header("X-User-Id", userId)
                         .header("X-User-Email", username)
                         .header("X-User-Role", role)
                         .build();

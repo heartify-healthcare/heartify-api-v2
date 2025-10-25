@@ -1,0 +1,30 @@
+services:
+  heartify-postgres:
+    image: postgres:15-alpine
+    container_name: heartify-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-heartify_db}
+      POSTGRES_USER: ${POSTGRES_USER:-heartify}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-heartify}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  heartify-mongodb:
+    image: mongo:7-jammy
+    container_name: heartify-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-heartify}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-heartify}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-heartify_ai_db}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  postgres_data:
+  mongodb_data:

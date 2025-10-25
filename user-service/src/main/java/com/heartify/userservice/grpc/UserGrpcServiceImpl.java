@@ -6,6 +6,8 @@ import com.heartify.userservice.repository.UserRepository;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.server.service.GrpcService;
 
+import java.util.UUID;
+
 @GrpcService
 public class UserGrpcServiceImpl extends UserGrpcServiceGrpc.UserGrpcServiceImplBase {
 
@@ -17,13 +19,14 @@ public class UserGrpcServiceImpl extends UserGrpcServiceGrpc.UserGrpcServiceImpl
 
     @Override
     public void getUserById(GetUserByIdRequest request, StreamObserver<UserResponse> responseObserver) {
-        User user = userRepository.findById(request.getUserId()).orElse(null);
+        UUID userId = UUID.fromString(request.getUserId());
+        User user = userRepository.findById(userId).orElse(null);
         
         UserResponse.Builder responseBuilder = UserResponse.newBuilder();
         
         if (user != null) {
             responseBuilder
-                .setUserId(user.getId())
+                .setUserId(user.getId().toString())
                 .setEmail(user.getEmail())
                 .setRole(user.getRole().name())
                 .setIsVerified(user.getIsVerified())
@@ -43,7 +46,7 @@ public class UserGrpcServiceImpl extends UserGrpcServiceGrpc.UserGrpcServiceImpl
         if (user != null && user.getIsVerified() && user.getStatus() == User.UserStatus.ACTIVE) {
             responseBuilder
                 .setValid(true)
-                .setUserId(user.getId())
+                .setUserId(user.getId().toString())
                 .setRole(user.getRole().name());
         } else {
             responseBuilder.setValid(false);

@@ -6,11 +6,12 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import com.heartify.userservice.entity.User;
 
 public class UserDto {
-    private Long id;
+    private UUID id;
     private String username;
     private String email;
     private String phonenumber;
@@ -39,7 +40,7 @@ public class UserDto {
             userDto = new UserDto();
         }
 
-        public Builder id(Long id) {
+        public Builder id(UUID id) {
             userDto.id = id;
             return this;
         }
@@ -367,11 +368,11 @@ public class UserDto {
         }
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 
