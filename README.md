@@ -43,3 +43,20 @@ git add config-repo
 git commit -m "chore(branch-name): update config submodule"
 git push
 ```
+
+## Database-related commands
+PosgreSQL
+```bash
+psql -h localhost -p 5432 -d heartify_db -U heartify
+select * from "users"
+select * from "otps"
+```
+
+MongoDB
+```bash
+mongosh "mongodb://heartify:heartify@localhost:27017/heartify_ai_db?authSource=admin"
+db.ecg_sessions.find().limit(10)
+db.ecg_recordings.find().limit(10)
+db.predictions.find().limit(10)
+db.explanations.find().limit(10)
+```
