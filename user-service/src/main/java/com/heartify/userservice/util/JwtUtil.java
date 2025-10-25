@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 public class JwtUtil {
@@ -29,7 +30,7 @@ public class JwtUtil {
 
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("user_id", user.getId());
+        claims.put("user_id", user.getId().toString());
         claims.put("username", user.getUsername());
         claims.put("email", user.getEmail());
         claims.put("role", user.getRole().name().toLowerCase());
@@ -59,13 +60,10 @@ public class JwtUtil {
         return extractAllClaims(token).get("role", String.class);
     }
 
-    public Long extractUserId(String token) {
-        // Handle both Integer and Long types
-        Object userId = extractAllClaims(token).get("user_id");
-        if (userId instanceof Integer) {
-            return ((Integer) userId).longValue();
-        }
-        return (Long) userId;
+    public UUID extractUserId(String token) {
+        // Extract user_id as String and convert to UUID
+        String userIdStr = extractAllClaims(token).get("user_id", String.class);
+        return UUID.fromString(userIdStr);
     }
 
     public boolean isTokenExpired(String token) {

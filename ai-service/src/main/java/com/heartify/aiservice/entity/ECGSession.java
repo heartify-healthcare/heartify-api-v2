@@ -14,7 +14,7 @@ public class ECGSession {
     private String id;
 
     @Field("user_id")
-    private Long userId;
+    private UUID userId;
 
     @Field("device_id")
     private String deviceId;
@@ -44,11 +44,11 @@ public class ECGSession {
         this.id = id;
     }
 
-    public Long getUserId() {
+    public UUID getUserId() {
         return userId;
     }
 
-    public void setUserId(Long userId) {
+    public void setUserId(UUID userId) {
         this.userId = userId;
     }
 
@@ -108,7 +108,7 @@ public class ECGSession {
             return this;
         }
 
-        public Builder userId(Long userId) {
+        public Builder userId(UUID userId) {
             session.userId = userId;
             return this;
         }

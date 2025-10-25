@@ -8,17 +8,18 @@ import org.springframework.stereotype.Repository;
 import com.heartify.userservice.entity.OtpVerification;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface OtpVerificationRepository extends JpaRepository<OtpVerification, Long> {
+public interface OtpVerificationRepository extends JpaRepository<OtpVerification, UUID> {
     
-    Optional<OtpVerification> findByUser_IdAndOtpCodeAndOtpUsedFalse(Long userId, String otpCode);
+    Optional<OtpVerification> findByUser_IdAndOtpCodeAndOtpUsedFalse(UUID userId, String otpCode);
     
-    Optional<OtpVerification> findFirstByUser_IdOrderByIdDesc(Long userId);
+    Optional<OtpVerification> findFirstByUser_IdOrderByIdDesc(UUID userId);
     
     @Modifying
     @Query("UPDATE OtpVerification o SET o.otpUsed = true WHERE o.user.id = :userId AND o.otpUsed = false")
-    void invalidateUserOtps(Long userId);
+    void invalidateUserOtps(UUID userId);
     
     @Modifying
     @Query("DELETE FROM OtpVerification o WHERE o.expiredTime < :currentTime")

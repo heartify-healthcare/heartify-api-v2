@@ -36,8 +36,9 @@ public class JwtUtil {
         return extractAllClaims(token).get("role", String.class);
     }
 
-    public Long extractUserId(String token) {
-        return extractAllClaims(token).get("user_id", Long.class);
+    public String extractUserId(String token) {
+        // Extract user_id as String (UUID)
+        return extractAllClaims(token).get("user_id", String.class);
     }
 
     public boolean isTokenExpired(String token) {

@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/ecg-sessions")
 public class ECGSessionController {
@@ -25,12 +27,13 @@ public class ECGSessionController {
     // GET /ecg-sessions - Get all ECG sessions with pagination
     @GetMapping
     public ResponseEntity<Page<ECGSessionDto>> getECGSessions(
-            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Id") String userIdStr,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
 
+        UUID userId = UUID.fromString(userIdStr);
         Sort sort = sortDir.equalsIgnoreCase("asc") 
                 ? Sort.by(sortBy).ascending() 
                 : Sort.by(sortBy).descending();
@@ -51,8 +54,9 @@ public class ECGSessionController {
     @PostMapping
     public ResponseEntity<ECGSessionDto> createECGSession(
             @Valid @RequestBody ECGSessionDto.CreateECGSessionRequest request,
-            @RequestHeader("X-User-Id") Long userId) {
+            @RequestHeader("X-User-Id") String userIdStr) {
 
+        UUID userId = UUID.fromString(userIdStr);
         ECGSessionDto createdSession = ecgSessionService.createECGSession(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdSession);
     }

@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class ECGSessionService {
@@ -52,7 +53,7 @@ public class ECGSessionService {
     }
 
     @Transactional
-    public ECGSessionDto createECGSession(ECGSessionDto.CreateECGSessionRequest request, Long userId) {
+    public ECGSessionDto createECGSession(ECGSessionDto.CreateECGSessionRequest request, UUID userId) {
         try {
             logger.info("Starting ECG session creation for user: {}", userId);
 
@@ -117,7 +118,7 @@ public class ECGSessionService {
         }
     }
 
-    public Page<ECGSessionDto> getECGSessions(Long userId, Pageable pageable) {
+    public Page<ECGSessionDto> getECGSessions(UUID userId, Pageable pageable) {
         Page<ECGSession> sessions = ecgSessionRepository.findByUserId(userId, pageable);
         return sessions.map(this::mapToDto);
     }

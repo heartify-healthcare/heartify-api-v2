@@ -3,11 +3,12 @@ package com.heartify.aiservice.dto;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.UUID;
 
 public class ECGSessionDto {
 
     private String id;
-    private Long userId;
+    private UUID userId;
     private String deviceId;
     private String ecgId;
     private String predictionId;
@@ -30,11 +31,11 @@ public class ECGSessionDto {
         this.id = id;
     }
 
-    public Long getUserId() {
+    public UUID getUserId() {
         return userId;
     }
 
-    public void setUserId(Long userId) {
+    public void setUserId(UUID userId) {
         this.userId = userId;
     }
 
@@ -118,7 +119,7 @@ public class ECGSessionDto {
             return this;
         }
 
-        public Builder userId(Long userId) {
+        public Builder userId(UUID userId) {
             dto.userId = userId;
             return this;
         }
