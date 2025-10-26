@@ -47,7 +47,7 @@ git push
 ## Database-related commands
 PosgreSQL
 ```bash
-psql -h localhost -p 5432 -d heartify_db -U heartify
+psql -h localhost -p 5432 -d heartify_user_db -U heartify
 select * from "users"
 select * from "otps"
 ```
