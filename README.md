@@ -18,17 +18,17 @@ cd eureka-server
 mvn clean compile
 mvn spring-boot:run
 
-# api-gateway folder
+# In api-gateway folder
 cd api-gateway
 mvn clean compile
 mvn spring-boot:run
 
-# user-service folder
+# In user-service folder
 cd user-service
 mvn clean compile
 mvn spring-boot:run
 
-# ai-service folder
+# In ai-service folder
 cd ai-service
 mvn clean compile
 mvn spring-boot:run
