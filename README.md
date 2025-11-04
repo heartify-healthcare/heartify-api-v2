@@ -40,7 +40,7 @@ cd config-repo
 git pull origin main
 cd ..
 git add config-repo
-git commit -m "chore(branch-name): update config submodule"
+git commit -m "chore(develop): update config submodule"
 git push
 ```
 
