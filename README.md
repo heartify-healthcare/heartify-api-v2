@@ -48,15 +48,25 @@ git push
 PosgreSQL
 ```bash
 psql -h localhost -p 5432 -d heartify_user_db -U heartify
+
 select * from "users"
 select * from "otps"
+
+delete from "users"
+delete from "otps"
 ```
 
 MongoDB
 ```bash
 mongosh "mongodb://heartify:heartify@localhost:27017/heartify_ai_db?authSource=admin"
+
 db.ecg_sessions.find().limit(10)
 db.ecg_recordings.find().limit(10)
 db.predictions.find().limit(10)
 db.explanations.find().limit(10)
+
+db.ecg_sessions.deleteMany({})
+db.ecg_recordings.deleteMany({})
+db.predictions.deleteMany({})
+db.explanations.deleteMany({})
 ```
