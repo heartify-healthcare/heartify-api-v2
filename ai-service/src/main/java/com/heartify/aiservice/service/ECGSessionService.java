@@ -36,20 +36,20 @@ public class ECGSessionService {
     private final PredictionRepository predictionRepository;
     private final ExplanationRepository explanationRepository;
     private final DLModelClient dlModelClient;
-    private final GeminiClient geminiClient;
+    private final LLMClient llmClient;
 
     public ECGSessionService(ECGSessionRepository ecgSessionRepository,
                              ECGRecordingRepository ecgRecordingRepository,
                              PredictionRepository predictionRepository,
                              ExplanationRepository explanationRepository,
                              DLModelClient dlModelClient,
-                             GeminiClient geminiClient) {
+                             LLMClient llmClient) {
         this.ecgSessionRepository = ecgSessionRepository;
         this.ecgRecordingRepository = ecgRecordingRepository;
         this.predictionRepository = predictionRepository;
         this.explanationRepository = explanationRepository;
         this.dlModelClient = dlModelClient;
-        this.geminiClient = geminiClient;
+        this.llmClient = llmClient;
     }
 
     @Transactional
@@ -83,9 +83,9 @@ public class ECGSessionService {
             Prediction savedPrediction = predictionRepository.save(prediction);
             logger.info("Prediction saved with id: {}", savedPrediction.getId());
 
-            // Step 3: Call Gemini LLM for Explanation
-            logger.info("Calling Gemini API for medical explanation");
-            Map<String, Object> explanationResponse = geminiClient.generateExplanation(
+            // Step 3: Call LLM API for Explanation
+            logger.info("Calling LLM API for medical explanation");
+            Map<String, Object> explanationResponse = llmClient.generateExplanation(
                     savedPrediction.getDiagnosis(),
                     savedPrediction.getProbability(),
                     savedPrediction.getFeatures()
