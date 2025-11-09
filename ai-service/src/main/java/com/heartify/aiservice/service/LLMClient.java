@@ -119,54 +119,15 @@ public class LLMClient {
 
             logger.debug("Extracted text content from Gemini: {}", textContent);
 
+            // Parse the JSON string directly
+            @SuppressWarnings("unchecked")
+            Map<String, Object> explanationContent = objectMapper.readValue(textContent, Map.class);
+
             logger.info("LLM explanation generated successfully");
-            
-            // Parse the JSON response from Gemini
-            // The response might be a JSON object or might need cleaning
-            String cleanedJson = textContent.trim();
-            
-            // Remove markdown code block if present
-            if (cleanedJson.startsWith("```json")) {
-                cleanedJson = cleanedJson.substring(7);
-            }
-            if (cleanedJson.startsWith("```")) {
-                cleanedJson = cleanedJson.substring(3);
-            }
-            if (cleanedJson.endsWith("```")) {
-                cleanedJson = cleanedJson.substring(0, cleanedJson.length() - 3);
-            }
-            cleanedJson = cleanedJson.trim();
-            
-            logger.debug("Cleaned JSON response: {}", cleanedJson);
-            
-            Map<String, Object> explanationContent;
-            
-            // Try to parse as object first
-            try {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> parsedMap = objectMapper.readValue(cleanedJson, Map.class);
-                explanationContent = parsedMap;
-            } catch (Exception e) {
-                // If it's an array, try to get the first element
-                logger.warn("Failed to parse as object, attempting to parse as array: {}", e.getMessage());
-                try {
-                    @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> parsedList = objectMapper.readValue(cleanedJson, List.class);
-                    if (parsedList != null && !parsedList.isEmpty()) {
-                        explanationContent = parsedList.get(0);
-                        logger.info("Successfully extracted first element from array response");
-                    } else {
-                        throw new AiServiceException("LLM returned empty array");
-                    }
-                } catch (Exception ex) {
-                    logger.error("Failed to parse LLM response as both object and array. Raw content: {}", cleanedJson);
-                    throw new AiServiceException("Failed to parse LLM response: " + ex.getMessage());
-                }
-            }
 
             // Build result
             Map<String, Object> result = new HashMap<>();
-            result.put("llm_model_version", 1); // Gemini 2.5 Flash
+            result.put("llm_model_version", 1); // Gemini 2.0 Flash Exp
             result.put("explanation", explanationContent);
 
             return result;
