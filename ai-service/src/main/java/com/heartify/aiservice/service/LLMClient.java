@@ -99,11 +99,14 @@ public class LLMClient {
                 throw new AiServiceException("LLM API returned null response");
             }
 
+            logger.debug("Raw Gemini response: {}", response);
+
             // Parse Gemini response
             JsonNode rootNode = objectMapper.readTree(response);
             JsonNode candidatesNode = rootNode.path("candidates");
             
             if (candidatesNode.isEmpty()) {
+                logger.error("Empty candidates in Gemini response: {}", response);
                 throw new AiServiceException("LLM API returned empty candidates");
             }
 
@@ -114,11 +117,52 @@ public class LLMClient {
                     .path("text")
                     .asText();
 
+            logger.debug("Extracted text content from Gemini: {}", textContent);
+
             logger.info("LLM explanation generated successfully");
             
             // Parse the JSON response from Gemini
-            @SuppressWarnings("unchecked")
-            Map<String, Object> explanationContent = objectMapper.readValue(textContent, Map.class);
+            // The response might be a JSON object or might need cleaning
+            String cleanedJson = textContent.trim();
+            
+            // Remove markdown code block if present
+            if (cleanedJson.startsWith("```json")) {
+                cleanedJson = cleanedJson.substring(7);
+            }
+            if (cleanedJson.startsWith("```")) {
+                cleanedJson = cleanedJson.substring(3);
+            }
+            if (cleanedJson.endsWith("```")) {
+                cleanedJson = cleanedJson.substring(0, cleanedJson.length() - 3);
+            }
+            cleanedJson = cleanedJson.trim();
+            
+            logger.debug("Cleaned JSON response: {}", cleanedJson);
+            
+            Map<String, Object> explanationContent;
+            
+            // Try to parse as object first
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> parsedMap = objectMapper.readValue(cleanedJson, Map.class);
+                explanationContent = parsedMap;
+            } catch (Exception e) {
+                // If it's an array, try to get the first element
+                logger.warn("Failed to parse as object, attempting to parse as array: {}", e.getMessage());
+                try {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> parsedList = objectMapper.readValue(cleanedJson, List.class);
+                    if (parsedList != null && !parsedList.isEmpty()) {
+                        explanationContent = parsedList.get(0);
+                        logger.info("Successfully extracted first element from array response");
+                    } else {
+                        throw new AiServiceException("LLM returned empty array");
+                    }
+                } catch (Exception ex) {
+                    logger.error("Failed to parse LLM response as both object and array. Raw content: {}", cleanedJson);
+                    throw new AiServiceException("Failed to parse LLM response: " + ex.getMessage());
+                }
+            }
 
             // Build result
             Map<String, Object> result = new HashMap<>();
@@ -179,12 +223,13 @@ public class LLMClient {
         prompt.append("}\n");
         prompt.append("```\n\n");
         
+        prompt.append("**CRITICAL: Return ONLY the JSON object shown above. Do NOT wrap it in an array. Do NOT add any additional text before or after the JSON.**\n\n");
+        
         prompt.append("**Important Notes**:\n");
         prompt.append("1. Use professional but easy-to-understand English\n");
         prompt.append("2. Avoid alarming the patient unnecessarily\n");
         prompt.append("3. Always emphasize the need to consult a doctor for accurate diagnosis\n");
         prompt.append("4. If abnormal signs are detected, recommend seeing a doctor immediately\n");
-        prompt.append("5. Return EXACTLY the JSON format as requested, without any additional text\n");
         
         return prompt.toString();
     }
