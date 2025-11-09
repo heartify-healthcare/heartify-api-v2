@@ -52,55 +52,66 @@ public class ECGSessionService {
         this.llmClient = llmClient;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public ECGSessionDto createECGSession(ECGSessionDto.CreateECGSessionRequest request, UUID userId) {
+        ECGRecording savedRecording = null;
+        Prediction savedPrediction = null;
+        Explanation savedExplanation = null;
+        
         try {
             logger.info("Starting ECG session creation for user: {}", userId);
 
-            // Step 1: Save ECG Recording
+            // Step 1: Call Deep Learning Model for Prediction (BEFORE saving to DB)
+            logger.info("Calling DL Model API for ECG prediction");
+            List<Double> ecgSignal = extractECGSignal(request.getDenoisedData());
+            Map<String, Object> predictionResponse = dlModelClient.predict(ecgSignal);
+            
+            // Step 2: Call LLM API for Explanation (BEFORE saving to DB)
+            logger.info("Calling LLM API for medical explanation");
+            String diagnosis = (String) predictionResponse.get("diagnosis");
+            Double probability = (Double) predictionResponse.get("probability");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> features = (Map<String, Object>) predictionResponse.get("features");
+            
+            Map<String, Object> explanationResponse = llmClient.generateExplanation(
+                    diagnosis,
+                    probability,
+                    features
+            );
+
+            // Step 3: All API calls succeeded - Now save to database
+            logger.info("All API calls successful, saving to database");
+            
+            // Save ECG Recording
             ECGRecording ecgRecording = ECGRecording.builder()
                     .rawData(request.getRawData())
                     .denoisedData(request.getDenoisedData())
                     .samplingRate(request.getSamplingRate())
                     .build();
-            ECGRecording savedRecording = ecgRecordingRepository.save(ecgRecording);
+            savedRecording = ecgRecordingRepository.save(ecgRecording);
             logger.info("ECG Recording saved with id: {}", savedRecording.getId());
-
-            // Step 2: Call Deep Learning Model for Prediction
-            logger.info("Calling DL Model API for ECG prediction");
             
-            // Extract ECG signal from denoisedData - assuming it contains "ecg_signal" field with array of values
-            List<Double> ecgSignal = extractECGSignal(savedRecording.getDenoisedData());
-            Map<String, Object> predictionResponse = dlModelClient.predict(ecgSignal);
-            
-            @SuppressWarnings("unchecked")
+            // Save Prediction
             Prediction prediction = Prediction.builder()
                     .modelVersion((Integer) predictionResponse.get("model_version"))
-                    .diagnosis((String) predictionResponse.get("diagnosis"))
-                    .probability((Double) predictionResponse.get("probability"))
-                    .features((Map<String, Object>) predictionResponse.get("features"))
+                    .diagnosis(diagnosis)
+                    .probability(probability)
+                    .features(features)
                     .build();
-            Prediction savedPrediction = predictionRepository.save(prediction);
+            savedPrediction = predictionRepository.save(prediction);
             logger.info("Prediction saved with id: {}", savedPrediction.getId());
 
-            // Step 3: Call LLM API for Explanation
-            logger.info("Calling LLM API for medical explanation");
-            Map<String, Object> explanationResponse = llmClient.generateExplanation(
-                    savedPrediction.getDiagnosis(),
-                    savedPrediction.getProbability(),
-                    savedPrediction.getFeatures()
-            );
-
+            // Save Explanation
             @SuppressWarnings("unchecked")
             Explanation explanation = Explanation.builder()
                     .llmModelVersion((Integer) explanationResponse.get("llm_model_version"))
                     .prompt(createPrompt(savedPrediction))
                     .explanation((Map<String, Object>) explanationResponse.get("explanation"))
                     .build();
-            Explanation savedExplanation = explanationRepository.save(explanation);
+            savedExplanation = explanationRepository.save(explanation);
             logger.info("Explanation saved with id: {}", savedExplanation.getId());
 
-            // Step 4: Create ECG Session linking all components
+            // Save ECG Session
             ECGSession session = ECGSession.builder()
                     .userId(userId)
                     .deviceId(request.getDeviceId())
@@ -115,6 +126,25 @@ public class ECGSessionService {
 
         } catch (Exception e) {
             logger.error("Error creating ECG session: {}", e.getMessage(), e);
+            
+            // Cleanup: Delete any saved entities if transaction fails
+            try {
+                if (savedExplanation != null && savedExplanation.getId() != null) {
+                    explanationRepository.deleteById(savedExplanation.getId());
+                    logger.info("Rolled back: Deleted explanation {}", savedExplanation.getId());
+                }
+                if (savedPrediction != null && savedPrediction.getId() != null) {
+                    predictionRepository.deleteById(savedPrediction.getId());
+                    logger.info("Rolled back: Deleted prediction {}", savedPrediction.getId());
+                }
+                if (savedRecording != null && savedRecording.getId() != null) {
+                    ecgRecordingRepository.deleteById(savedRecording.getId());
+                    logger.info("Rolled back: Deleted ECG recording {}", savedRecording.getId());
+                }
+            } catch (Exception cleanupException) {
+                logger.error("Error during cleanup/rollback: {}", cleanupException.getMessage());
+            }
+            
             throw new AiServiceException("Failed to create ECG session: " + e.getMessage(), e);
         }
     }
