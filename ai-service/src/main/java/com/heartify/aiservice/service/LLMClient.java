@@ -3,8 +3,6 @@ package com.heartify.aiservice.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.heartify.aiservice.exception.AiServiceException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -22,8 +20,6 @@ import java.util.Map;
 @Service
 public class LLMClient {
 
-    private static final Logger logger = LoggerFactory.getLogger(LLMClient.class);
-
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     
@@ -39,7 +35,6 @@ public class LLMClient {
                 .baseUrl(llmApiUrl)
                 .build();
         this.objectMapper = objectMapper;
-        logger.info("LLMClient initialized with URL: {}", llmApiUrl);
     }
 
     /**
@@ -52,11 +47,8 @@ public class LLMClient {
      */
     public Map<String, Object> generateExplanation(String diagnosis, Double probability, Map<String, Object> features) {
         try {
-            logger.info("Calling LLM API (Gemini) for explanation generation");
-
             // Build the prompt
             String prompt = buildPrompt(diagnosis, probability, features);
-            logger.debug("Generated prompt: {}", prompt);
 
             // Prepare request body for Gemini API
             Map<String, Object> requestBody = new HashMap<>();
@@ -85,7 +77,6 @@ public class LLMClient {
                         status -> status.is4xxClientError() || status.is5xxServerError(),
                         clientResponse -> clientResponse.bodyToMono(String.class)
                             .flatMap(errorBody -> {
-                                logger.error("LLM API (Gemini) error: {}", errorBody);
                                 return Mono.error(new AiServiceException(
                                     "LLM API returned error: " + errorBody
                                 ));
@@ -99,14 +90,11 @@ public class LLMClient {
                 throw new AiServiceException("LLM API returned null response");
             }
 
-            logger.debug("Raw Gemini response: {}", response);
-
             // Parse Gemini response
             JsonNode rootNode = objectMapper.readTree(response);
             JsonNode candidatesNode = rootNode.path("candidates");
             
             if (candidatesNode.isEmpty()) {
-                logger.error("Empty candidates in Gemini response: {}", response);
                 throw new AiServiceException("LLM API returned empty candidates");
             }
 
@@ -117,13 +105,9 @@ public class LLMClient {
                     .path("text")
                     .asText();
 
-            logger.debug("Extracted text content from Gemini: {}", textContent);
-
             // Parse the JSON string directly
             @SuppressWarnings("unchecked")
             Map<String, Object> explanationContent = objectMapper.readValue(textContent, Map.class);
-
-            logger.info("LLM explanation generated successfully");
 
             // Build result
             Map<String, Object> result = new HashMap<>();
@@ -133,7 +117,6 @@ public class LLMClient {
             return result;
 
         } catch (Exception e) {
-            logger.error("Error calling LLM API: {}", e.getMessage(), e);
             throw new AiServiceException("Failed to generate explanation from LLM: " + e.getMessage(), e);
         }
     }

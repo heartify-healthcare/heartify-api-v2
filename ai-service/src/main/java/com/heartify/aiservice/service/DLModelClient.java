@@ -1,8 +1,6 @@
 package com.heartify.aiservice.service;
 
 import com.heartify.aiservice.exception.AiServiceException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -20,8 +18,6 @@ import java.util.Map;
 @Service
 public class DLModelClient {
 
-    private static final Logger logger = LoggerFactory.getLogger(DLModelClient.class);
-
     private final WebClient webClient;
     
     @Value("${ai.model.prediction-api-key}")
@@ -34,7 +30,6 @@ public class DLModelClient {
         this.webClient = WebClient.builder()
                 .baseUrl(predictionApiUrl)
                 .build();
-        logger.info("DLModelClient initialized with URL: {}", predictionApiUrl);
     }
 
     /**
@@ -45,8 +40,6 @@ public class DLModelClient {
      */
     public Map<String, Object> predict(List<Double> ecgSignal) {
         try {
-            logger.info("Calling DL Model API for ECG prediction");
-
             // Prepare request body
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("ecg_signal", ecgSignal);
@@ -62,7 +55,6 @@ public class DLModelClient {
                         status -> status.is4xxClientError() || status.is5xxServerError(),
                         clientResponse -> clientResponse.bodyToMono(String.class)
                             .flatMap(errorBody -> {
-                                logger.error("DL Model API error: {}", errorBody);
                                 return Mono.error(new AiServiceException(
                                     "DL Model API returned error: " + errorBody
                                 ));
@@ -76,7 +68,6 @@ public class DLModelClient {
                 throw new AiServiceException("DL Model API returned null response");
             }
 
-            logger.info("DL Model prediction successful: {}", response.get("diagnosis"));
             
             // Convert response to expected format
             Map<String, Object> result = new HashMap<>();
@@ -88,7 +79,6 @@ public class DLModelClient {
             return result;
 
         } catch (Exception e) {
-            logger.error("Error calling DL Model API: {}", e.getMessage(), e);
             throw new AiServiceException("Failed to get prediction from DL Model: " + e.getMessage(), e);
         }
     }

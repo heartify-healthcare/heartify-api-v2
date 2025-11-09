@@ -14,8 +14,6 @@ import com.heartify.aiservice.repository.ECGRecordingRepository;
 import com.heartify.aiservice.repository.ECGSessionRepository;
 import com.heartify.aiservice.repository.ExplanationRepository;
 import com.heartify.aiservice.repository.PredictionRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,8 +26,6 @@ import java.util.UUID;
 
 @Service
 public class ECGSessionService {
-
-    private static final Logger logger = LoggerFactory.getLogger(ECGSessionService.class);
 
     private final ECGSessionRepository ecgSessionRepository;
     private final ECGRecordingRepository ecgRecordingRepository;
@@ -59,15 +55,11 @@ public class ECGSessionService {
         Explanation savedExplanation = null;
         
         try {
-            logger.info("Starting ECG session creation for user: {}", userId);
-
             // Step 1: Call Deep Learning Model for Prediction (BEFORE saving to DB)
-            logger.info("Calling DL Model API for ECG prediction");
             List<Double> ecgSignal = extractECGSignal(request.getDenoisedData());
             Map<String, Object> predictionResponse = dlModelClient.predict(ecgSignal);
             
             // Step 2: Call LLM API for Explanation (BEFORE saving to DB)
-            logger.info("Calling LLM API for medical explanation");
             String diagnosis = (String) predictionResponse.get("diagnosis");
             Double probability = (Double) predictionResponse.get("probability");
             @SuppressWarnings("unchecked")
@@ -80,7 +72,6 @@ public class ECGSessionService {
             );
 
             // Step 3: All API calls succeeded - Now save to database
-            logger.info("All API calls successful, saving to database");
             
             // Save ECG Recording
             ECGRecording ecgRecording = ECGRecording.builder()
@@ -89,7 +80,6 @@ public class ECGSessionService {
                     .samplingRate(request.getSamplingRate())
                     .build();
             savedRecording = ecgRecordingRepository.save(ecgRecording);
-            logger.info("ECG Recording saved with id: {}", savedRecording.getId());
             
             // Save Prediction
             Prediction prediction = Prediction.builder()
@@ -99,7 +89,6 @@ public class ECGSessionService {
                     .features(features)
                     .build();
             savedPrediction = predictionRepository.save(prediction);
-            logger.info("Prediction saved with id: {}", savedPrediction.getId());
 
             // Save Explanation
             @SuppressWarnings("unchecked")
@@ -109,7 +98,6 @@ public class ECGSessionService {
                     .explanation((Map<String, Object>) explanationResponse.get("explanation"))
                     .build();
             savedExplanation = explanationRepository.save(explanation);
-            logger.info("Explanation saved with id: {}", savedExplanation.getId());
 
             // Save ECG Session
             ECGSession session = ECGSession.builder()
@@ -120,29 +108,23 @@ public class ECGSessionService {
                     .explanationId(savedExplanation.getId())
                     .build();
             ECGSession savedSession = ecgSessionRepository.save(session);
-            logger.info("ECG Session created successfully with id: {}", savedSession.getId());
 
             return mapToDetailedDto(savedSession, savedRecording, savedPrediction, savedExplanation);
 
         } catch (Exception e) {
-            logger.error("Error creating ECG session: {}", e.getMessage(), e);
             
             // Cleanup: Delete any saved entities if transaction fails
             try {
                 if (savedExplanation != null && savedExplanation.getId() != null) {
                     explanationRepository.deleteById(savedExplanation.getId());
-                    logger.info("Rolled back: Deleted explanation {}", savedExplanation.getId());
                 }
                 if (savedPrediction != null && savedPrediction.getId() != null) {
                     predictionRepository.deleteById(savedPrediction.getId());
-                    logger.info("Rolled back: Deleted prediction {}", savedPrediction.getId());
                 }
                 if (savedRecording != null && savedRecording.getId() != null) {
                     ecgRecordingRepository.deleteById(savedRecording.getId());
-                    logger.info("Rolled back: Deleted ECG recording {}", savedRecording.getId());
                 }
             } catch (Exception cleanupException) {
-                logger.error("Error during cleanup/rollback: {}", cleanupException.getMessage());
             }
             
             throw new AiServiceException("Failed to create ECG session: " + e.getMessage(), e);
@@ -180,7 +162,6 @@ public class ECGSessionService {
         
         // Delete session
         ecgSessionRepository.deleteById(id);
-        logger.info("ECG Session deleted successfully: {}", id);
     }
 
     /**
