@@ -16,13 +16,13 @@ import com.heartify.aiservice.repository.ExplanationRepository;
 import com.heartify.aiservice.repository.PredictionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,21 +35,21 @@ public class ECGSessionService {
     private final ECGRecordingRepository ecgRecordingRepository;
     private final PredictionRepository predictionRepository;
     private final ExplanationRepository explanationRepository;
-
-    @Value("${ai.model.prediction-api-url}")
-    private String predictionApiUrl;
-
-    @Value("${ai.model.explanation-api-url}")
-    private String explanationApiUrl;
+    private final DLModelClient dlModelClient;
+    private final GeminiClient geminiClient;
 
     public ECGSessionService(ECGSessionRepository ecgSessionRepository,
                              ECGRecordingRepository ecgRecordingRepository,
                              PredictionRepository predictionRepository,
-                             ExplanationRepository explanationRepository) {
+                             ExplanationRepository explanationRepository,
+                             DLModelClient dlModelClient,
+                             GeminiClient geminiClient) {
         this.ecgSessionRepository = ecgSessionRepository;
         this.ecgRecordingRepository = ecgRecordingRepository;
         this.predictionRepository = predictionRepository;
         this.explanationRepository = explanationRepository;
+        this.dlModelClient = dlModelClient;
+        this.geminiClient = geminiClient;
     }
 
     @Transactional
@@ -66,12 +66,14 @@ public class ECGSessionService {
             ECGRecording savedRecording = ecgRecordingRepository.save(ecgRecording);
             logger.info("ECG Recording saved with id: {}", savedRecording.getId());
 
-            // Step 2: Call AI Model for Prediction
-            // TODO: Implement actual API call to AI prediction model
-            // For now, using mock data
-            logger.info("Calling AI Prediction Model at: {}", predictionApiUrl);
-            Map<String, Object> predictionResponse = callPredictionModel(savedRecording.getDenoisedData());
+            // Step 2: Call Deep Learning Model for Prediction
+            logger.info("Calling DL Model API for ECG prediction");
             
+            // Extract ECG signal from denoisedData - assuming it contains "ecg_signal" field with array of values
+            List<Double> ecgSignal = extractECGSignal(savedRecording.getDenoisedData());
+            Map<String, Object> predictionResponse = dlModelClient.predict(ecgSignal);
+            
+            @SuppressWarnings("unchecked")
             Prediction prediction = Prediction.builder()
                     .modelVersion((Integer) predictionResponse.get("model_version"))
                     .diagnosis((String) predictionResponse.get("diagnosis"))
@@ -81,16 +83,15 @@ public class ECGSessionService {
             Prediction savedPrediction = predictionRepository.save(prediction);
             logger.info("Prediction saved with id: {}", savedPrediction.getId());
 
-            // Step 3: Call LLM for Explanation
-            // TODO: Implement actual API call to LLM explanation model
-            // For now, using mock data
-            logger.info("Calling LLM Explanation Model at: {}", explanationApiUrl);
-            Map<String, Object> explanationResponse = callExplanationModel(
+            // Step 3: Call Gemini LLM for Explanation
+            logger.info("Calling Gemini API for medical explanation");
+            Map<String, Object> explanationResponse = geminiClient.generateExplanation(
                     savedPrediction.getDiagnosis(),
                     savedPrediction.getProbability(),
                     savedPrediction.getFeatures()
             );
 
+            @SuppressWarnings("unchecked")
             Explanation explanation = Explanation.builder()
                     .llmModelVersion((Integer) explanationResponse.get("llm_model_version"))
                     .prompt(createPrompt(savedPrediction))
@@ -152,40 +153,34 @@ public class ECGSessionService {
         logger.info("ECG Session deleted successfully: {}", id);
     }
 
-    // TODO: Replace this method with actual API call to AI prediction model
-    private Map<String, Object> callPredictionModel(Map<String, Object> denoisedData) {
-        // Mock response - Replace with actual WebClient call to prediction API
-        logger.warn("Using mock prediction data. Implement actual API call to: {}", predictionApiUrl);
+    /**
+     * Extract ECG signal from denoised data
+     * Assumes denoisedData contains an "ecg_signal" or "signal" field with array of values
+     */
+    private List<Double> extractECGSignal(Map<String, Object> denoisedData) {
+        // Try to get ecg_signal field
+        Object signal = denoisedData.get("ecg_signal");
+        if (signal == null) {
+            signal = denoisedData.get("signal");
+        }
+        if (signal == null) {
+            signal = denoisedData.get("data");
+        }
         
-        Map<String, Object> response = new HashMap<>();
-        response.put("model_version", 1);
-        response.put("diagnosis", "Normal Sinus Rhythm");
-        response.put("probability", 0.95);
+        if (signal instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Object> rawList = (List<Object>) signal;
+            return rawList.stream()
+                    .map(obj -> {
+                        if (obj instanceof Number) {
+                            return ((Number) obj).doubleValue();
+                        }
+                        return Double.parseDouble(obj.toString());
+                    })
+                    .toList();
+        }
         
-        Map<String, Object> features = new HashMap<>();
-        features.put("heart_rate", 75);
-        features.put("qrs_duration", 0.08);
-        features.put("pr_interval", 0.16);
-        response.put("features", features);
-        
-        return response;
-    }
-
-    // TODO: Replace this method with actual API call to LLM explanation model
-    private Map<String, Object> callExplanationModel(String diagnosis, Double probability, Map<String, Object> features) {
-        // Mock response - Replace with actual WebClient call to LLM API
-        logger.warn("Using mock explanation data. Implement actual API call to: {}", explanationApiUrl);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("llm_model_version", 1);
-        
-        Map<String, Object> explanationContent = new HashMap<>();
-        explanationContent.put("summary", "Your ECG shows a normal sinus rhythm with good regularity.");
-        explanationContent.put("details", "All cardiac intervals are within normal limits. No signs of arrhythmia detected.");
-        explanationContent.put("recommendation", "Continue regular check-ups and maintain a healthy lifestyle.");
-        response.put("explanation", explanationContent);
-        
-        return response;
+        throw new AiServiceException("Invalid ECG signal format in denoisedData");
     }
 
     private Map<String, Object> createPrompt(Prediction prediction) {
