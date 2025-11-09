@@ -48,8 +48,12 @@ git push
 PosgreSQL
 ```bash
 psql -h localhost -p 5432 -d heartify_user_db -U heartify
+
 select * from "users"
 select * from "otps"
+
+delete from "users"
+delete from "otps"
 ```
 
 MongoDB
