@@ -31,10 +31,12 @@ public class DLModelClient {
     private int timeout;
 
     public DLModelClient(@Value("${ai.model.prediction-api-url}") String predictionApiUrl) {
+        // Ensure URL ends with / for Flask compatibility
+        String baseUrl = predictionApiUrl.endsWith("/") ? predictionApiUrl : predictionApiUrl + "/";
         this.webClient = WebClient.builder()
-                .baseUrl(predictionApiUrl)
+                .baseUrl(baseUrl)
                 .build();
-        logger.info("DLModelClient initialized with URL: {}", predictionApiUrl);
+        logger.info("DLModelClient initialized with URL: {}", baseUrl);
     }
 
     /**
@@ -54,6 +56,7 @@ public class DLModelClient {
             // Call the API
             @SuppressWarnings("unchecked")
             Map<String, Object> response = webClient.post()
+                    .uri("") // Empty URI since baseUrl already includes the full path
                     .header("x-api-key", apiKey)
                     .header("Content-Type", "application/json")
                     .bodyValue(requestBody)
