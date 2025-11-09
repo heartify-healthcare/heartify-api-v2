@@ -1,5 +1,7 @@
 package com.heartify.aiservice.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.heartify.aiservice.exception.AiServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,10 +12,11 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Client service for LLM API
+ * Client service for LLM API (Google Gemini)
  * Generates medical explanations for ECG analysis results
  */
 @Service
@@ -22,6 +25,7 @@ public class LLMClient {
     private static final Logger logger = LoggerFactory.getLogger(LLMClient.class);
 
     private final WebClient webClient;
+    private final ObjectMapper objectMapper;
     
     @Value("${ai.model.llm-api-key}")
     private String apiKey;
@@ -29,15 +33,17 @@ public class LLMClient {
     @Value("${ai.model.timeout}")
     private int timeout;
 
-    public LLMClient(@Value("${ai.model.llm-api-url}") String llmApiUrl) {
+    public LLMClient(@Value("${ai.model.llm-api-url}") String llmApiUrl,
+                     ObjectMapper objectMapper) {
         this.webClient = WebClient.builder()
                 .baseUrl(llmApiUrl)
                 .build();
+        this.objectMapper = objectMapper;
         logger.info("LLMClient initialized with URL: {}", llmApiUrl);
     }
 
     /**
-     * Generate medical explanation using LLM
+     * Generate medical explanation using LLM (Gemini)
      * 
      * @param diagnosis ECG diagnosis from DL model
      * @param probability Confidence probability
@@ -46,27 +52,32 @@ public class LLMClient {
      */
     public Map<String, Object> generateExplanation(String diagnosis, Double probability, Map<String, Object> features) {
         try {
-            logger.info("Calling LLM API for explanation generation");
+            logger.info("Calling LLM API (Gemini) for explanation generation");
 
             // Build the prompt
             String prompt = buildPrompt(diagnosis, probability, features);
             logger.debug("Generated prompt: {}", prompt);
 
-            // Prepare request body for LLM API
+            // Prepare request body for Gemini API
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("prompt", prompt);
+            Map<String, Object> content = new HashMap<>();
+            Map<String, String> part = new HashMap<>();
+            part.put("text", prompt);
+            content.put("parts", List.of(part));
+            requestBody.put("contents", List.of(content));
             
-            // Add generation parameters
-            Map<String, Object> parameters = new HashMap<>();
-            parameters.put("temperature", 0.7);
-            parameters.put("max_tokens", 1024);
-            parameters.put("top_p", 0.95);
-            requestBody.put("parameters", parameters);
+            // Add generation config for JSON response
+            Map<String, Object> generationConfig = new HashMap<>();
+            generationConfig.put("temperature", 0.7);
+            generationConfig.put("topK", 40);
+            generationConfig.put("topP", 0.95);
+            generationConfig.put("maxOutputTokens", 1024);
+            generationConfig.put("responseMimeType", "application/json");
+            requestBody.put("generationConfig", generationConfig);
 
-            // Call LLM API
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = webClient.post()
-                    .header("x-api-key", apiKey)
+            // Call Gemini API
+            String response = webClient.post()
+                    .uri(uriBuilder -> uriBuilder.queryParam("key", apiKey).build())
                     .header("Content-Type", "application/json")
                     .bodyValue(requestBody)
                     .retrieve()
@@ -74,13 +85,13 @@ public class LLMClient {
                         status -> status.is4xxClientError() || status.is5xxServerError(),
                         clientResponse -> clientResponse.bodyToMono(String.class)
                             .flatMap(errorBody -> {
-                                logger.error("LLM API error: {}", errorBody);
+                                logger.error("LLM API (Gemini) error: {}", errorBody);
                                 return Mono.error(new AiServiceException(
                                     "LLM API returned error: " + errorBody
                                 ));
                             })
                     )
-                    .bodyToMono(Map.class)
+                    .bodyToMono(String.class)
                     .timeout(Duration.ofMillis(timeout))
                     .block();
 
@@ -88,15 +99,30 @@ public class LLMClient {
                 throw new AiServiceException("LLM API returned null response");
             }
 
+            // Parse Gemini response
+            JsonNode rootNode = objectMapper.readTree(response);
+            JsonNode candidatesNode = rootNode.path("candidates");
+            
+            if (candidatesNode.isEmpty()) {
+                throw new AiServiceException("LLM API returned empty candidates");
+            }
+
+            String textContent = candidatesNode.get(0)
+                    .path("content")
+                    .path("parts")
+                    .get(0)
+                    .path("text")
+                    .asText();
+
             logger.info("LLM explanation generated successfully");
             
-            // Extract explanation from response
+            // Parse the JSON response from Gemini
             @SuppressWarnings("unchecked")
-            Map<String, Object> explanationContent = (Map<String, Object>) response.get("explanation");
+            Map<String, Object> explanationContent = objectMapper.readValue(textContent, Map.class);
 
             // Build result
             Map<String, Object> result = new HashMap<>();
-            result.put("llm_model_version", response.getOrDefault("model_version", 1));
+            result.put("llm_model_version", 1); // Gemini 2.5 Flash
             result.put("explanation", explanationContent);
 
             return result;
