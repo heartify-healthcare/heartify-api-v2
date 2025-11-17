@@ -4,9 +4,9 @@ services:
     container_name: heartify-postgres
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-heartify_user_db}
-      POSTGRES_USER: ${POSTGRES_USER:-heartify}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-heartify}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -17,9 +17,9 @@ services:
     container_name: heartify-mongodb
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-heartify}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-heartify}
-      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-heartify_ai_db}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
     ports:
       - "27017:27017"
     volumes:
