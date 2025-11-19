@@ -98,6 +98,8 @@ public class LLMClient {
                 throw new AiServiceException("LLM API returned empty candidates");
             }
 
+            System.out.println(candidatesNode.toString());
+
             String textContent = candidatesNode.get(0)
                     .path("content")
                     .path("parts")

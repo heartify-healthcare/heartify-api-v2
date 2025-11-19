@@ -35,7 +35,7 @@ public class DLModelClient {
     /**
      * Call Deep Learning Model to predict ECG signal
      * 
-     * @param ecgSignal Array of 130 float values representing ECG signal
+     * @param ecgSignal Array of 1300 float values representing ECG signal
      * @return Map containing prediction results (modelVersion, diagnosis, probability, features)
      */
     public Map<String, Object> predict(List<Double> ecgSignal) {
