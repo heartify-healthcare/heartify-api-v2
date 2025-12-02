@@ -1,6 +1,5 @@
 package com.heartify.aiservice.dto;
 
-import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -107,55 +106,6 @@ public class PredictionDto {
 
         public PredictionDto build() {
             return dto;
-        }
-    }
-
-    public static class CreatePredictionRequest {
-        @NotNull(message = "Model version is required")
-        private Integer modelVersion;
-
-        @NotNull(message = "Diagnosis is required")
-        private String diagnosis;
-
-        @NotNull(message = "Probability is required")
-        private Double probability;
-
-        @NotNull(message = "Features are required")
-        private Map<String, Object> features;
-
-        public CreatePredictionRequest() {
-        }
-
-        public Integer getModelVersion() {
-            return modelVersion;
-        }
-
-        public void setModelVersion(Integer modelVersion) {
-            this.modelVersion = modelVersion;
-        }
-
-        public String getDiagnosis() {
-            return diagnosis;
-        }
-
-        public void setDiagnosis(String diagnosis) {
-            this.diagnosis = diagnosis;
-        }
-
-        public Double getProbability() {
-            return probability;
-        }
-
-        public void setProbability(Double probability) {
-            this.probability = probability;
-        }
-
-        public Map<String, Object> getFeatures() {
-            return features;
-        }
-
-        public void setFeatures(Map<String, Object> features) {
-            this.features = features;
         }
     }
 }

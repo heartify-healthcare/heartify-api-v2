@@ -15,18 +15,6 @@ public class PredictionService {
         this.predictionRepository = predictionRepository;
     }
 
-    public PredictionDto createPrediction(PredictionDto.CreatePredictionRequest request) {
-        Prediction prediction = Prediction.builder()
-                .modelVersion(request.getModelVersion())
-                .diagnosis(request.getDiagnosis())
-                .probability(request.getProbability())
-                .features(request.getFeatures())
-                .build();
-
-        Prediction savedPrediction = predictionRepository.save(prediction);
-        return mapToDto(savedPrediction);
-    }
-
     public PredictionDto getPredictionById(String id) {
         Prediction prediction = predictionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Prediction not found with id: " + id));

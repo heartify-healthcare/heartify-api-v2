@@ -1,6 +1,5 @@
 package com.heartify.aiservice.dto;
 
-import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -93,44 +92,6 @@ public class ECGRecordingDto {
 
         public ECGRecordingDto build() {
             return dto;
-        }
-    }
-
-    public static class CreateECGRecordingRequest {
-        @NotNull(message = "Raw data is required")
-        private Map<String, Object> rawData;
-
-        @NotNull(message = "Denoised data is required")
-        private Map<String, Object> denoisedData;
-
-        @NotNull(message = "Sampling rate is required")
-        private Integer samplingRate;
-
-        public CreateECGRecordingRequest() {
-        }
-
-        public Map<String, Object> getRawData() {
-            return rawData;
-        }
-
-        public void setRawData(Map<String, Object> rawData) {
-            this.rawData = rawData;
-        }
-
-        public Map<String, Object> getDenoisedData() {
-            return denoisedData;
-        }
-
-        public void setDenoisedData(Map<String, Object> denoisedData) {
-            this.denoisedData = denoisedData;
-        }
-
-        public Integer getSamplingRate() {
-            return samplingRate;
-        }
-
-        public void setSamplingRate(Integer samplingRate) {
-            this.samplingRate = samplingRate;
         }
     }
 }

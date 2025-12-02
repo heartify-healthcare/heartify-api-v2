@@ -1,6 +1,5 @@
 package com.heartify.aiservice.dto;
 
-import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -93,44 +92,6 @@ public class ExplanationDto {
 
         public ExplanationDto build() {
             return dto;
-        }
-    }
-
-    public static class CreateExplanationRequest {
-        @NotNull(message = "LLM model version is required")
-        private Integer llmModelVersion;
-
-        @NotNull(message = "Prompt is required")
-        private Map<String, Object> prompt;
-
-        @NotNull(message = "Explanation is required")
-        private Map<String, Object> explanation;
-
-        public CreateExplanationRequest() {
-        }
-
-        public Integer getLlmModelVersion() {
-            return llmModelVersion;
-        }
-
-        public void setLlmModelVersion(Integer llmModelVersion) {
-            this.llmModelVersion = llmModelVersion;
-        }
-
-        public Map<String, Object> getPrompt() {
-            return prompt;
-        }
-
-        public void setPrompt(Map<String, Object> prompt) {
-            this.prompt = prompt;
-        }
-
-        public Map<String, Object> getExplanation() {
-            return explanation;
-        }
-
-        public void setExplanation(Map<String, Object> explanation) {
-            this.explanation = explanation;
         }
     }
 }

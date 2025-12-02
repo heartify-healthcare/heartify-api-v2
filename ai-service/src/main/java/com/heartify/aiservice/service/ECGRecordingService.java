@@ -15,17 +15,6 @@ public class ECGRecordingService {
         this.ecgRecordingRepository = ecgRecordingRepository;
     }
 
-    public ECGRecordingDto createECGRecording(ECGRecordingDto.CreateECGRecordingRequest request) {
-        ECGRecording recording = ECGRecording.builder()
-                .rawData(request.getRawData())
-                .denoisedData(request.getDenoisedData())
-                .samplingRate(request.getSamplingRate())
-                .build();
-
-        ECGRecording savedRecording = ecgRecordingRepository.save(recording);
-        return mapToDto(savedRecording);
-    }
-
     public ECGRecordingDto getECGRecordingById(String id) {
         ECGRecording recording = ecgRecordingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ECG Recording not found with id: " + id));

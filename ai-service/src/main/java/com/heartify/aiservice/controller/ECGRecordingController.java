@@ -3,8 +3,6 @@ package com.heartify.aiservice.controller;
 import com.heartify.aiservice.dto.ECGRecordingDto;
 import com.heartify.aiservice.dto.MessageResponse;
 import com.heartify.aiservice.service.ECGRecordingService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,15 +21,6 @@ public class ECGRecordingController {
     public ResponseEntity<ECGRecordingDto> getECGRecordingById(@PathVariable String id) {
         ECGRecordingDto recording = ecgRecordingService.getECGRecordingById(id);
         return ResponseEntity.ok(recording);
-    }
-
-    // POST /ecg-recordings - Create new ECG recording
-    @PostMapping
-    public ResponseEntity<ECGRecordingDto> createECGRecording(
-            @Valid @RequestBody ECGRecordingDto.CreateECGRecordingRequest request) {
-
-        ECGRecordingDto createdRecording = ecgRecordingService.createECGRecording(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdRecording);
     }
 
     // DELETE /ecg-recordings/{id} - Delete ECG recording

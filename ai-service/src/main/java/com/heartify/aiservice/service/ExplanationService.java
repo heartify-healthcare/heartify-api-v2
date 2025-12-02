@@ -15,17 +15,6 @@ public class ExplanationService {
         this.explanationRepository = explanationRepository;
     }
 
-    public ExplanationDto createExplanation(ExplanationDto.CreateExplanationRequest request) {
-        Explanation explanation = Explanation.builder()
-                .llmModelVersion(request.getLlmModelVersion())
-                .prompt(request.getPrompt())
-                .explanation(request.getExplanation())
-                .build();
-
-        Explanation savedExplanation = explanationRepository.save(explanation);
-        return mapToDto(savedExplanation);
-    }
-
     public ExplanationDto getExplanationById(String id) {
         Explanation explanation = explanationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Explanation not found with id: " + id));

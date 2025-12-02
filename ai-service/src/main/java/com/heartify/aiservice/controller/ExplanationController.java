@@ -3,8 +3,6 @@ package com.heartify.aiservice.controller;
 import com.heartify.aiservice.dto.ExplanationDto;
 import com.heartify.aiservice.dto.MessageResponse;
 import com.heartify.aiservice.service.ExplanationService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,15 +21,6 @@ public class ExplanationController {
     public ResponseEntity<ExplanationDto> getExplanationById(@PathVariable String id) {
         ExplanationDto explanation = explanationService.getExplanationById(id);
         return ResponseEntity.ok(explanation);
-    }
-
-    // POST /explanations - Create new explanation
-    @PostMapping
-    public ResponseEntity<ExplanationDto> createExplanation(
-            @Valid @RequestBody ExplanationDto.CreateExplanationRequest request) {
-
-        ExplanationDto createdExplanation = explanationService.createExplanation(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdExplanation);
     }
 
     // DELETE /explanations/{id} - Delete explanation
