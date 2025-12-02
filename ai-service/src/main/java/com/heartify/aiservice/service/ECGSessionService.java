@@ -31,6 +31,7 @@ public class ECGSessionService {
     private final ECGRecordingRepository ecgRecordingRepository;
     private final PredictionRepository predictionRepository;
     private final ExplanationRepository explanationRepository;
+    private final DenoisingClient denoisingClient;
     private final DLModelClient dlModelClient;
     private final LLMClient llmClient;
 
@@ -38,12 +39,14 @@ public class ECGSessionService {
                              ECGRecordingRepository ecgRecordingRepository,
                              PredictionRepository predictionRepository,
                              ExplanationRepository explanationRepository,
+                             DenoisingClient denoisingClient,
                              DLModelClient dlModelClient,
                              LLMClient llmClient) {
         this.ecgSessionRepository = ecgSessionRepository;
         this.ecgRecordingRepository = ecgRecordingRepository;
         this.predictionRepository = predictionRepository;
         this.explanationRepository = explanationRepository;
+        this.denoisingClient = denoisingClient;
         this.dlModelClient = dlModelClient;
         this.llmClient = llmClient;
     }
@@ -55,11 +58,18 @@ public class ECGSessionService {
         Explanation savedExplanation = null;
         
         try {
-            // Step 1: Call Deep Learning Model for Prediction (BEFORE saving to DB)
-            List<Double> ecgSignal = extractECGSignal(request.getDenoisedData());
-            Map<String, Object> predictionResponse = dlModelClient.predict(ecgSignal);
+            // Step 1: Extract raw ECG signal from request
+            List<Double> rawEcgSignal = extractECGSignal(request.getRawData());
             
-            // Step 2: Call LLM API for Explanation (BEFORE saving to DB)
+            // Step 2: Call Denoising Model to clean ECG signal
+            Map<String, Object> denoisingResponse = denoisingClient.denoise(rawEcgSignal);
+            @SuppressWarnings("unchecked")
+            List<Double> denoisedSignal = (List<Double>) denoisingResponse.get("denoised_signal");
+            
+            // Step 3: Call Deep Learning Model for Prediction using denoised signal
+            Map<String, Object> predictionResponse = dlModelClient.predict(denoisedSignal);
+            
+            // Step 4: Call LLM API for Explanation
             String diagnosis = (String) predictionResponse.get("diagnosis");
             Double probability = (Double) predictionResponse.get("probability");
             @SuppressWarnings("unchecked")
@@ -71,12 +81,18 @@ public class ECGSessionService {
                     features
             );
 
-            // Step 3: All API calls succeeded - Now save to database
+            // Step 5: All API calls succeeded - Now save to database
+            
+            // Build denoisedData map for storage (same structure as rawData)
+            Map<String, Object> denoisedData = new HashMap<>();
+            denoisedData.put("signal", denoisedSignal);
+            denoisedData.put("lead", request.getRawData().get("lead"));
+            denoisedData.put("duration", request.getRawData().get("duration"));
             
             // Save ECG Recording
             ECGRecording ecgRecording = ECGRecording.builder()
                     .rawData(request.getRawData())
-                    .denoisedData(request.getDenoisedData())
+                    .denoisedData(denoisedData)
                     .samplingRate(request.getSamplingRate())
                     .build();
             savedRecording = ecgRecordingRepository.save(ecgRecording);
@@ -165,17 +181,17 @@ public class ECGSessionService {
     }
 
     /**
-     * Extract ECG signal from denoised data
-     * Assumes denoisedData contains an "ecg_signal" or "signal" field with array of values
+     * Extract ECG signal from raw data
+     * Assumes rawData contains an "ecg_signal" or "signal" field with array of values
      */
-    private List<Double> extractECGSignal(Map<String, Object> denoisedData) {
+    private List<Double> extractECGSignal(Map<String, Object> rawData) {
         // Try to get ecg_signal field
-        Object signal = denoisedData.get("ecg_signal");
+        Object signal = rawData.get("ecg_signal");
         if (signal == null) {
-            signal = denoisedData.get("signal");
+            signal = rawData.get("signal");
         }
         if (signal == null) {
-            signal = denoisedData.get("data");
+            signal = rawData.get("data");
         }
         
         if (signal instanceof List) {
@@ -191,7 +207,7 @@ public class ECGSessionService {
                     .toList();
         }
         
-        throw new AiServiceException("Invalid ECG signal format in denoisedData");
+        throw new AiServiceException("Invalid ECG signal format in rawData");
     }
 
     private Map<String, Object> createPrompt(Prediction prediction) {

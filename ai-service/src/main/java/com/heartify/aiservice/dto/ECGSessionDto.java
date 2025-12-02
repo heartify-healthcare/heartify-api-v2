@@ -176,9 +176,6 @@ public class ECGSessionDto {
         @NotNull(message = "Raw data is required")
         private Map<String, Object> rawData;
 
-        @NotNull(message = "Denoised data is required")
-        private Map<String, Object> denoisedData;
-
         @NotNull(message = "Sampling rate is required")
         private Integer samplingRate;
 
@@ -199,14 +196,6 @@ public class ECGSessionDto {
 
         public void setRawData(Map<String, Object> rawData) {
             this.rawData = rawData;
-        }
-
-        public Map<String, Object> getDenoisedData() {
-            return denoisedData;
-        }
-
-        public void setDenoisedData(Map<String, Object> denoisedData) {
-            this.denoisedData = denoisedData;
         }
 
         public Integer getSamplingRate() {
