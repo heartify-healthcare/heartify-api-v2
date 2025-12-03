@@ -30,8 +30,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        # Sử dụng SHA thay vì tag @v45 để bảo mật tuyệt đối (SHA này tương ứng v45.0.3)
-        uses: tj-actions/changed-files@d6babd68c9909c058c716086000456485857f413
+        uses: tj-actions/changed-files@v45
         with:
           # Bật tính năng trả về định dạng JSON cho Matrix
           json: true
