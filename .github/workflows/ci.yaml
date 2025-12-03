@@ -1,0 +1,97 @@
+name: Backend Microservices CI
+
+on:
+  push:
+    branches: [ "feat/dockerfile","develop", "main" ]
+  pull_request:
+    branches: [ "develop", "main" ]
+
+jobs:
+  # Job này dùng để kiểm tra xem folder nào có sự thay đổi
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api-gateway: ${{ steps.filter.outputs.api-gateway }}
+      config-server: ${{ steps.filter.outputs.config-server }}
+      eureka-server: ${{ steps.filter.outputs.eureka-server }}
+      user-service: ${{ steps.filter.outputs.user-service }}
+      ai-service: ${{ steps.filter.outputs.ai-service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api-gateway: 'api-gateway/**'
+            config-server: 'config-server/**'
+            eureka-server: 'eureka-server/**'
+            user-service: 'user-service/**'
+            ai-service: 'ai-service/**'
+
+  # Job Build & Test & Push - Chạy song song nhờ Matrix
+  build-and-deploy:
+    needs: changes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ['api-gateway', 'config-server', 'eureka-server', 'user-service', 'ai-service']
+    
+    # Chỉ chạy nếu service đó có thay đổi (dựa vào output của job 'changes')
+    if: ${{ needs.changes.outputs[matrix.service] == 'true' }}
+
+    steps:
+      # 1. Checkout code (kèm submodule config-repo nếu cần)
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive 
+
+      # 2. Cài đặt Java 21 (như đã thống nhất ở Dockerfile trước)
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # 3. Chạy Unit Test
+      # - name: Run Tests for ${{ matrix.service }}
+      #   run: |
+      #     cd ${{ matrix.service }}
+      #     mvn test
+
+      # 4. Login vào AWS ECR
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 5. Build Docker Image và Push lên ECR
+      - name: Build and Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          # Map tên folder vào đúng tên repo ECR: heartify/user-service...
+          ECR_REPOSITORY: heartify/${{ matrix.service }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd ${{ matrix.service }}
+          
+          # 1. Build Image với tag là commit SHA
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          
+          # 2. Push image gốc (commit SHA) để lưu lịch sử
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+          # 3. Nếu là nhánh main, update thêm tag 'latest'
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            echo "::notice ::Pushed latest tag for ${{ matrix.service }}"
+          fi
