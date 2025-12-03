@@ -1,23 +1,26 @@
-name: Backend Microservices CI
+name: Backend Microservices CI/CD
 
 on:
   push:
-    branches: [ "feat/dockerfile","develop", "main" ]
+    branches: [ "feat/dockerfile", "develop", "main" ]
   pull_request:
     branches: [ "develop", "main" ]
+  # Cho phép chạy thủ công (sẽ build TẤT CẢ service nếu chạy thủ công)
+  workflow_dispatch:
 
 jobs:
-  # Job này dùng để kiểm tra xem folder nào có sự thay đổi
+  # ====================================================
+  # JOB 1: CHECK CHANGES & BUILD JSON MATRIX
+  # Job này quyết định service nào cần chạy dựa trên thay đổi code
+  # ====================================================
   changes:
     runs-on: ubuntu-latest
     outputs:
-      api-gateway: ${{ steps.filter.outputs.api-gateway }}
-      config-server: ${{ steps.filter.outputs.config-server }}
-      eureka-server: ${{ steps.filter.outputs.eureka-server }}
-      user-service: ${{ steps.filter.outputs.user-service }}
-      ai-service: ${{ steps.filter.outputs.ai-service }}
+      # Output này là một chuỗi JSON, ví dụ: ["api-gateway", "ai-service"]
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+      
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -28,26 +31,68 @@ jobs:
             user-service: 'user-service/**'
             ai-service: 'ai-service/**'
 
-  # Job Build & Test & Push - Chạy song song nhờ Matrix
+      - name: Generate Matrix JSON
+        id: set-matrix
+        run: |
+          # Bắt đầu tạo chuỗi JSON
+          JSON="["
+          
+          # Logic: Nếu có thay đổi trong folder HOẶC chạy thủ công (workflow_dispatch) -> Thêm vào list
+          
+          # 1. api-gateway
+          if [[ "${{ steps.filter.outputs.api-gateway }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            JSON="$JSON\"api-gateway\","
+          fi
+          
+          # 2. config-server
+          if [[ "${{ steps.filter.outputs.config-server }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            JSON="$JSON\"config-server\","
+          fi
+          
+          # 3. eureka-server
+          if [[ "${{ steps.filter.outputs.eureka-server }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            JSON="$JSON\"eureka-server\","
+          fi
+
+          # 4. user-service
+          if [[ "${{ steps.filter.outputs.user-service }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            JSON="$JSON\"user-service\","
+          fi
+
+          # 5. ai-service (Đã thêm vào pipeline chung)
+          if [[ "${{ steps.filter.outputs.ai-service }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            JSON="$JSON\"ai-service\","
+          fi
+
+          # Xử lý dấu phẩy cuối cùng để thành JSON hợp lệ
+          if [[ "$JSON" == *"," ]]; then
+            JSON="${JSON%?}" # Xóa ký tự cuối cùng
+          fi
+          JSON="$JSON]"
+
+          echo "Generated Matrix: $JSON"
+          echo "matrix=$JSON" >> $GITHUB_OUTPUT
+
+  # ====================================================
+  # JOB 2: BUILD & PUSH (Cho cả 5 Services)
+  # ====================================================
   build-and-deploy:
     needs: changes
     runs-on: ubuntu-latest
+    # Chỉ chạy nếu danh sách JSON không rỗng (khác "[]")
+    if: ${{ needs.changes.outputs.matrix != '[]' && needs.changes.outputs.matrix != '' }}
     strategy:
       fail-fast: false
       matrix:
-        service: ['api-gateway', 'config-server', 'eureka-server', 'user-service', 'ai-service']
-    
-    # Chỉ chạy nếu service đó có thay đổi (dựa vào output của job 'changes')
-    if: ${{ needs.changes.outputs[matrix.service] == 'true' }}
+        # Nhận chuỗi JSON từ job trên và biến thành Matrix thật
+        service: ${{ fromJson(needs.changes.outputs.matrix) }}
 
     steps:
-      # 1. Checkout code (kèm submodule config-repo nếu cần)
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: recursive 
 
-      # 2. Cài đặt Java 21 (như đã thống nhất ở Dockerfile trước)
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -55,13 +100,14 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # 3. Chạy Unit Test
-      # - name: Run Tests for ${{ matrix.service }}
+      # ==========================================
+      # ĐÃ COMMENT BƯỚC TEST THEO YÊU CẦU
+      # ==========================================
+      # - name: Run Unit Tests
       #   run: |
       #     cd ${{ matrix.service }}
       #     mvn test
 
-      # 4. Login vào AWS ECR
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -73,23 +119,24 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 5. Build Docker Image và Push lên ECR
       - name: Build and Push Docker Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          # Map tên folder vào đúng tên repo ECR: heartify/user-service...
+          # Map tên folder vào đúng tên repo ECR: heartify/ai-service, heartify/user-service...
           ECR_REPOSITORY: heartify/${{ matrix.service }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           cd ${{ matrix.service }}
           
+          echo "Building service: ${{ matrix.service }}..."
+          
           # 1. Build Image với tag là commit SHA
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           
-          # 2. Push image gốc (commit SHA) để lưu lịch sử
+          # 2. Push image gốc
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-          # 3. Nếu là nhánh main, update thêm tag 'latest'
+          # 3. Logic gắn tag 'latest' khi merge vào main
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
