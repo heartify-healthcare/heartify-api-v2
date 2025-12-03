@@ -1,11 +1,41 @@
-# Build Stage
-FROM maven:3.8-openjdk-17-slim AS build
-COPY src /home/app/src
-COPY pom.xml /home/app
-RUN mvn -f /home/app/pom.xml clean package
+# ==========================================
+# STAGE 1: Build (Dùng Maven với JDK 21 - Temurin)
+# ==========================================
+# Thay đổi từ temurin-17 sang temurin-21
+FROM maven:3.9-eclipse-temurin-21 AS builder
 
-# Execution Stage
-FROM openjdk:17-oracle
-COPY --from=build /home/app/target/demo-0.1-SNAPSHOT.jar /usr/local/lib/demo.jar
+WORKDIR /app
+
+# 1. Copy file cấu hình dependency
+COPY pom.xml .
+
+# 2. Tải toàn bộ dependency (Go Offline)
+RUN mvn dependency:go-offline -B
+
+# 3. Copy source code
+COPY src ./src
+
+# 4. Build application
+RUN mvn clean package -DskipTests
+
+# ==========================================
+# STAGE 2: Runtime (Dùng JRE 21 Alpine)
+# ==========================================
+# Thay đổi từ temurin:17 sang temurin:21
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /app
+
+# Tạo user non-root
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
+
+# Copy file jar
+COPY --from=builder /app/target/*.jar app.jar
+
+# Cấu hình JVM
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
 EXPOSE 8080
-ENTRYPOINT ["java","-jar","/usr/local/lib/demo.jar"]
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
