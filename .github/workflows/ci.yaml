@@ -5,93 +5,72 @@ on:
     branches: [ "feat/dockerfile", "develop", "main" ]
   pull_request:
     branches: [ "develop", "main" ]
-  # Cho phép chạy thủ công (sẽ build TẤT CẢ service nếu chạy thủ công)
   workflow_dispatch:
+    # Vẫn giữ input nếu muốn chạy thủ công sau này (tùy chọn)
+
+env:
+  AWS_REGION: ap-southeast-1
 
 jobs:
   # ====================================================
-  # JOB 1: CHECK CHANGES & BUILD JSON MATRIX
-  # Job này quyết định service nào cần chạy dựa trên thay đổi code
+  # JOB 1: DETECT CHANGES (Sử dụng tj-actions)
   # ====================================================
   changes:
     runs-on: ubuntu-latest
     outputs:
-      # Output này là một chuỗi JSON, ví dụ: ["api-gateway", "ai-service"]
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      # Action sẽ trả về JSON danh sách các key thay đổi (vd: ["api-gateway", "user-service"])
+      matrix: ${{ steps.changed-files.outputs.changed_keys }}
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            api-gateway: 'api-gateway/**'
-            config-server: 'config-server/**'
-            eureka-server: 'eureka-server/**'
-            user-service: 'user-service/**'
-            ai-service: 'ai-service/**'
+          # QUAN TRỌNG: Cần fetch-depth để so sánh diff giữa các commit
+          fetch-depth: 2 
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
 
-      - name: Generate Matrix JSON
-        id: set-matrix
-        run: |
-          # Bắt đầu tạo chuỗi JSON
-          JSON="["
+      - name: Get changed files
+        id: changed-files
+        # Sử dụng SHA thay vì tag @v45 để bảo mật tuyệt đối (SHA này tương ứng v45.0.3)
+        uses: tj-actions/changed-files@d6babd68c9909c058c716086000456485857f413
+        with:
+          # Bật tính năng trả về định dạng JSON cho Matrix
+          json: true
+          # Nếu chạy thủ công workflow_dispatch, coi như tất cả đều thay đổi (để force build)
+          # Nếu bạn không muốn logic này thì xóa dòng escape_json đi
+          escape_json: false
           
-          # Logic: Nếu có thay đổi trong folder HOẶC chạy thủ công (workflow_dispatch) -> Thêm vào list
-          
-          # 1. api-gateway
-          if [[ "${{ steps.filter.outputs.api-gateway }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            JSON="$JSON\"api-gateway\","
-          fi
-          
-          # 2. config-server
-          if [[ "${{ steps.filter.outputs.config-server }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            JSON="$JSON\"config-server\","
-          fi
-          
-          # 3. eureka-server
-          if [[ "${{ steps.filter.outputs.eureka-server }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            JSON="$JSON\"eureka-server\","
-          fi
-
-          # 4. user-service
-          if [[ "${{ steps.filter.outputs.user-service }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            JSON="$JSON\"user-service\","
-          fi
-
-          # 5. ai-service (Đã thêm vào pipeline chung)
-          if [[ "${{ steps.filter.outputs.ai-service }}" == "true" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            JSON="$JSON\"ai-service\","
-          fi
-
-          # Xử lý dấu phẩy cuối cùng để thành JSON hợp lệ
-          if [[ "$JSON" == *"," ]]; then
-            JSON="${JSON%?}" # Xóa ký tự cuối cùng
-          fi
-          JSON="$JSON]"
-
-          echo "Generated Matrix: $JSON"
-          echo "matrix=$JSON" >> $GITHUB_OUTPUT
+          # Định nghĩa các nhóm file (Key: Pattern)
+          files_yaml: |
+            api-gateway: 
+              - api-gateway/**
+            config-server: 
+              - config-server/**
+            eureka-server: 
+              - eureka-server/**
+            user-service: 
+              - user-service/**
+            ai-service: 
+              - ai-service/**
 
   # ====================================================
-  # JOB 2: BUILD & PUSH (Cho cả 5 Services)
+  # JOB 2: BUILD & PUSH
   # ====================================================
   build-and-deploy:
     needs: changes
     runs-on: ubuntu-latest
-    # Chỉ chạy nếu danh sách JSON không rỗng (khác "[]")
+    # Logic quan trọng: Chỉ chạy nếu output matrix không rỗng và khác '[]'
     if: ${{ needs.changes.outputs.matrix != '[]' && needs.changes.outputs.matrix != '' }}
     strategy:
       fail-fast: false
       matrix:
-        # Nhận chuỗi JSON từ job trên và biến thành Matrix thật
+        # Action tj-actions trả về output changed_keys là mảng JSON chuẩn, dùng thẳng luôn
         service: ${{ fromJson(needs.changes.outputs.matrix) }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: recursive 
+          submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN }}
 
       - name: Set up JDK 21
@@ -99,15 +78,7 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-
-
-      # ==========================================
-      # ĐÃ COMMENT BƯỚC TEST THEO YÊU CẦU
-      # ==========================================
-      # - name: Run Unit Tests
-      #   run: |
-      #     cd ${{ matrix.service }}
-      #     mvn test
+          # Đã bỏ cache maven để tránh warning
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -123,23 +94,16 @@ jobs:
       - name: Build and Push Docker Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          # Map tên folder vào đúng tên repo ECR: heartify/ai-service, heartify/user-service...
           ECR_REPOSITORY: heartify/${{ matrix.service }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           cd ${{ matrix.service }}
-          
           echo "Building service: ${{ matrix.service }}..."
           
-          # 1. Build Image với tag là commit SHA
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          
-          # 2. Push image gốc
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-          # 3. Logic gắn tag 'latest' khi merge vào main
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-            echo "::notice ::Pushed latest tag for ${{ matrix.service }}"
           fi
