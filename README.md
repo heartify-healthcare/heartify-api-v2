@@ -34,6 +34,12 @@ mvn clean compile
 mvn spring-boot:run
 ```
 
+## Development versions
+- Java 21.0.8
+- Maven 3.9.11
+- PostgreSQL 15-alpine
+- MongoDB 7-jammy
+
 ## Update the config-repo if there's changes on the actual config-repo
 ```bash
 cd config-repo
