@@ -76,3 +76,8 @@ db.ecg_recordings.deleteMany({})
 db.predictions.deleteMany({})
 db.explanations.deleteMany({})
 ```
+
+Qdrant
+```
+http://localhost:6333/dashboard
+```
