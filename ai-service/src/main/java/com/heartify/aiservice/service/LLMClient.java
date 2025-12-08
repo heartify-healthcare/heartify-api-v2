@@ -86,7 +86,7 @@ public class LLMClient {
             generationConfig.put("temperature", 0.7);
             generationConfig.put("topK", 40);
             generationConfig.put("topP", 0.95);
-            generationConfig.put("maxOutputTokens", 1024);
+            generationConfig.put("maxOutputTokens", 8192);
             generationConfig.put("responseMimeType", "application/json");
             requestBody.put("generationConfig", generationConfig);
 
