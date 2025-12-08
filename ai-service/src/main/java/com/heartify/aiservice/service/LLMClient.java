@@ -200,7 +200,10 @@ public class LLMClient {
     }
 
     /**
-     * Build a comprehensive prompt for LLM to generate medical explanation
+     * Build an optimized prompt for LLM using SOTA techniques:
+     * - Chain-of-Thought (CoT) reasoning
+     * - Few-Shot learning with Vietnamese examples
+     * - Contextual relevance with patient-specific features
      * Enhanced with RAG context from medical knowledge base
      * 
      * @param diagnosis ECG diagnosis
@@ -211,65 +214,163 @@ public class LLMClient {
     private String buildPrompt(String diagnosis, Double probability, Map<String, Object> features, String retrievedContext) {
         StringBuilder prompt = new StringBuilder();
         
-        prompt.append("You are a professional medical AI assistant that helps explain ECG (electrocardiogram) analysis results ");
-        prompt.append("to patients in a clear, accurate, and reassuring manner.\n\n");
+        // ========== SYSTEM ROLE & INSTRUCTIONS ==========
+        prompt.append("You are an expert cardiologist AI assistant specializing in patient education. ");
+        prompt.append("Your role is to translate complex ECG analysis into warm, empathetic, and easily understandable explanations ");
+        prompt.append("for patients with ZERO medical knowledge, in Vietnamese language.\n\n");
         
-        // Include RAG context if available
+        // ========== RAG CONTEXT ==========
         if (retrievedContext != null && !retrievedContext.isBlank()) {
-            prompt.append("## Reference Medical Knowledge:\n");
-            prompt.append("Use the following medical reference information to provide accurate and detailed explanations:\n\n");
+            prompt.append("## Medical Reference Knowledge:\n");
+            prompt.append("Use the following authoritative medical information to ensure clinical accuracy:\n\n");
             prompt.append(retrievedContext);
             prompt.append("\n\n---\n\n");
         }
         
-        prompt.append("## ECG Analysis Results:\n");
-        prompt.append(String.format("- **Diagnosis**: %s\n", diagnosis));
-        prompt.append(String.format("- **Confidence**: %.1f%%\n", probability * 100));
+        // ========== CHAIN-OF-THOUGHT INSTRUCTIONS ==========
+        prompt.append("## Analysis Framework (Chain-of-Thought):\n\n");
+        prompt.append("Before generating your final response, you MUST internally reason through these steps:\n\n");
+        prompt.append("**Step 1: Feature Analysis**\n");
+        prompt.append("- Examine each physiological feature provided below (Heart Rate, HRV, QRS Duration, etc.)\n");
+        prompt.append("- Identify which values are normal, borderline, or abnormal\n");
+        prompt.append("- Note the clinical significance of each deviation\n\n");
         
-        prompt.append("\n## Physiological Features:\n");
-        if (features.containsKey("heart_rate") && features.get("heart_rate") != null) {
-            prompt.append(String.format("- Heart Rate: %s bpm\n", features.get("heart_rate")));
-        }
-        if (features.containsKey("hrv_rmssd") && features.get("hrv_rmssd") != null) {
-            prompt.append(String.format("- HRV (RMSSD): %s ms\n", features.get("hrv_rmssd")));
-        }
-        if (features.containsKey("qrs_duration") && features.get("qrs_duration") != null) {
-            prompt.append(String.format("- QRS Duration: %s s\n", features.get("qrs_duration")));
-        }
-        if (features.containsKey("r_amplitude") && features.get("r_amplitude") != null) {
-            prompt.append(String.format("- R Wave Amplitude: %s\n", features.get("r_amplitude")));
-        }
-        if (features.containsKey("signal_energy") && features.get("signal_energy") != null) {
-            prompt.append(String.format("- Signal Energy: %s\n", features.get("signal_energy")));
-        }
-        if (features.containsKey("r_peaks_count") && features.get("r_peaks_count") != null) {
-            prompt.append(String.format("- R Peaks Detected: %s\n", features.get("r_peaks_count")));
-        }
+        prompt.append("**Step 2: Diagnosis Correlation**\n");
+        prompt.append("- Cross-reference the detected diagnosis with the feature values\n");
+        prompt.append("- Verify that the features support the diagnosis\n");
+        prompt.append("- Consider the confidence level in your explanation\n\n");
         
-        prompt.append("\n## Task:\n");
-        prompt.append("Please return the result as a JSON object with the following fields:\n\n");
+        prompt.append("**Step 3: Patient Impact Assessment**\n");
+        prompt.append("- Determine the real-world meaning for the patient (symptoms, daily life impact)\n");
+        prompt.append("- Assess risk level: low (routine monitoring), medium (needs attention), high (urgent care)\n");
+        prompt.append("- Decide on appropriate next steps\n\n");
+        
+        prompt.append("**Step 4: Tone Calibration**\n");
+        prompt.append("- Choose a tone that matches the severity: reassuring for benign findings, serious but calm for concerning findings\n");
+        prompt.append("- Ensure language is at a 6th-grade reading level (Vietnamese)\n");
+        prompt.append("- Use analogies and everyday comparisons, NOT medical jargon\n\n");
+        
+        prompt.append("---\n\n");
+        
+        // ========== FEW-SHOT EXAMPLES ==========
+        prompt.append("## Few-Shot Examples:\n\n");
+        prompt.append("Learn from these examples. Note: Input is technical, but output MUST be in warm, simple Vietnamese.\n\n");
+        
+        // Example 1: Sinus Tachycardia
+        prompt.append("### Example 1:\n");
+        prompt.append("**Input:**\n");
+        prompt.append("- Diagnosis: Sinus Tachycardia\n");
+        prompt.append("- Confidence: 92.5%\n");
+        prompt.append("- Heart Rate: 105 bpm\n");
+        prompt.append("- HRV (RMSSD): 28 ms\n");
+        prompt.append("- QRS Duration: 0.09 s\n\n");
+        prompt.append("**Output (Vietnamese):**\n");
         prompt.append("```json\n");
         prompt.append("{\n");
-        prompt.append("  \"summary\": \"A brief summary (1-2 sentences) about the patient's cardiac condition\",\n");
-        prompt.append("  \"details\": \"Detailed explanation of the ECG metrics, their significance, ");
-        prompt.append("and their relationship to the diagnosis. Use language that is easy for non-medical professionals to understand.\",\n");
-        prompt.append("  \"recommendations\": \"Specific recommendations for the patient (note: this does not replace professional medical advice)\",\n");
-        prompt.append("  \"risk_level\": \"low/medium/high - Risk assessment based on the results\",\n");
-        prompt.append("  \"next_steps\": \"Next steps the patient should take\"\n");
+        prompt.append("  \"summary\": \"Kết quả điện tâm đồ cho thấy tim bạn đang đập nhanh hơn bình thường một chút, nhưng đây là điều khá phổ biến và thường không nguy hiểm.\",\n");
+        prompt.append("  \"details\": \"Chúng tôi phát hiện nhịp tim của bạn đang ở mức 105 nhịp mỗi phút, trong khi nhịp bình thường của người lớn là khoảng 60-100 nhịp. Hãy tưởng tượng tim bạn như một chiếc đồng hồ đang chạy hơi nhanh một chút - nó vẫn hoạt động đều đặn, chỉ là tần suất cao hơn. Điều này có thể do bạn vừa vận động, lo lắng, uống cà phê, hoặc đơn giản là cơ thể đang cần nhiều oxy hơn. Các chỉ số khác của tim bạn như thời gian tín hiệu điện (QRS) đều nằm trong giới hạn an toàn, điều đó có nghĩa là cấu trúc và hoạt động của tim vẫn tốt.\",\n");
+        prompt.append("  \"recommendations\": \"Hãy thử thư giãn, nghỉ ngơi đầy đủ, và tránh những chất kích thích như caffeine hay nicotine trong vài ngày tới. Nếu bạn đang căng thẳng, hãy thử hít thở sâu hoặc đi bộ nhẹ nhàng. Đừng quá lo lắng - tình trạng này thường tự cải thiện.\",\n");
+        prompt.append("  \"risk_level\": \"low\",\n");
+        prompt.append("  \"next_steps\": \"Theo dõi nhịp tim của bạn trong 1-2 tuần. Nếu bạn cảm thấy hồi hộp mạnh, chóng mặt, hoặc khó thở, hãy đến gặp bác sĩ tim mạch để kiểm tra kỹ hơn. Với kết quả hiện tại, đây chỉ là tình trạng cần theo dõi, chưa cần lo lắng quá mức.\"\n");
         prompt.append("}\n");
         prompt.append("```\n\n");
         
-        prompt.append("**CRITICAL: Return ONLY the JSON object shown above. Do NOT wrap it in an array. Do NOT add any additional text before or after the JSON.**\n\n");
+        // Example 2: Atrial Fibrillation
+        prompt.append("### Example 2:\n");
+        prompt.append("**Input:**\n");
+        prompt.append("- Diagnosis: Atrial Fibrillation\n");
+        prompt.append("- Confidence: 88.3%\n");
+        prompt.append("- Heart Rate: 132 bpm\n");
+        prompt.append("- HRV (RMSSD): 45 ms\n");
+        prompt.append("- QRS Duration: 0.11 s\n\n");
+        prompt.append("**Output (Vietnamese):**\n");
+        prompt.append("```json\n");
+        prompt.append("{\n");
+        prompt.append("  \"summary\": \"Kết quả điện tâm đồ phát hiện nhịp tim của bạn đang hoạt động không đều - tình trạng này gọi là rung nhĩ. Đây là vấn đề cần được bác sĩ theo dõi và điều trị.\",\n");
+        prompt.append("  \"details\": \"Hãy tưởng tượng tim bạn có 4 ngăn như 4 căn phòng. Trong tình trạng bình thường, phòng trên cùng (nhĩ) sẽ bóp đều đặn để đẩy máu xuống phòng dưới. Nhưng hiện tại, nhịp đập ở phòng trên đang 'loạn nhịp' - giống như một dàn nhạc mà mỗi nhạc công chơi theo nhịp riêng, không còn hòa hợp nữa. Kết quả là tim bạn đập nhanh (132 nhịp/phút) và không đều. Mặc dù nghe có vẻ đáng lo, nhưng rất nhiều người sống khỏe mạnh với tình trạng này nhờ điều trị đúng cách.\",\n");
+        prompt.append("  \"recommendations\": \"Đây KHÔNG phải là tình huống khẩn cấp cần đến cấp cứu ngay lập tức, nhưng bạn cần gặp bác sĩ tim mạch trong vòng vài ngày tới. Bác sĩ có thể kê thuốc giúp điều hòa nhịp tim hoặc ngăn ngừa các biến chứng. Trong lúc chờ đợi, hãy tránh rượu bia, giảm căng thẳng, và không tự ý tập thể dục quá sức.\",\n");
+        prompt.append("  \"risk_level\": \"medium\",\n");
+        prompt.append("  \"next_steps\": \"Hãy đặt lịch khám bác sĩ tim mạch TRONG TUẦN NÀY. Mang theo kết quả điện tâm đồ này. Nếu bạn đột ngột cảm thấy đau ngực, khó thở nghiêm trọng, hoặc ngất xỉu, hãy gọi cấp cứu 115 ngay. Đối với hầu hết trường hợp rung nhĩ, việc điều trị kịp thời sẽ giúp bạn sống bình thường và khỏe mạnh.\"\n");
+        prompt.append("}\n");
+        prompt.append("```\n\n");
         
-        prompt.append("**Important Notes**:\n");
-        prompt.append("1. Use professional but easy-to-understand English\n");
-        prompt.append("2. Avoid alarming the patient unnecessarily\n");
-        prompt.append("3. Always emphasize the need to consult a doctor for accurate diagnosis\n");
-        prompt.append("4. If abnormal signs are detected, recommend seeing a doctor immediately\n");
-        if (retrievedContext != null && !retrievedContext.isBlank()) {
-            prompt.append("5. Base your explanation on the Reference Medical Knowledge provided above when applicable\n");
-        }
+        // Example 3: Normal Sinus Rhythm
+        prompt.append("### Example 3:\n");
+        prompt.append("**Input:**\n");
+        prompt.append("- Diagnosis: Normal Sinus Rhythm\n");
+        prompt.append("- Confidence: 96.8%\n");
+        prompt.append("- Heart Rate: 72 bpm\n");
+        prompt.append("- HRV (RMSSD): 42 ms\n");
+        prompt.append("- QRS Duration: 0.08 s\n\n");
+        prompt.append("**Output (Vietnamese):**\n");
+        prompt.append("```json\n");
+        prompt.append("{\n");
+        prompt.append("  \"summary\": \"Tin tốt! Kết quả điện tâm đồ của bạn hoàn toàn bình thường. Tim bạn đang hoạt động rất khỏe mạnh và đều đặn.\",\n");
+        prompt.append("  \"details\": \"Tất cả các chỉ số mà chúng tôi đo được đều nằm trong khoảng lý tưởng. Nhịp tim của bạn là 72 nhịp mỗi phút - con số 'vàng' cho một trái tim khỏe mạnh. Hệ thống điện của tim (tín hiệu khiến tim co bóp) đang hoạt động trơn tru, giống như hệ thống dây điện trong ngôi nhà được lắp đặt hoàn hảo. Sự biến đổi nhịp tim của bạn (HRV) cũng tốt, cho thấy tim có khả năng thích nghi linh hoạt với các hoạt động khác nhau - đây là dấu hiệu của một trái tim khỏe mạnh!\",\n");
+        prompt.append("  \"recommendations\": \"Hãy tiếp tục duy trì lối sống lành mạnh của bạn! Ăn nhiều rau củ, vận động đều đặn (ít nhất 30 phút mỗi ngày), ngủ đủ giấc, và kiểm soát căng thẳng. Nếu bạn hút thuốc, hãy cố gắng bỏ. Đây là những cách tốt nhất để giữ cho tim bạn luôn khỏe mạnh như hiện tại.\",\n");
+        prompt.append("  \"risk_level\": \"low\",\n");
+        prompt.append("  \"next_steps\": \"Không cần bất kỳ hành động y tế nào. Hãy thực hiện kiểm tra sức khỏe định kỳ hàng năm như bình thường. Nếu trong tương lai bạn có triệu chứng bất thường như đau ngực, khó thở, hoặc tim đập nhanh bất thường, hãy đi khám - nhưng với kết quả hiện tại, bạn hoàn toàn có thể yên tâm!\"\n");
+        prompt.append("}\n");
+        prompt.append("```\n\n");
+        
+        prompt.append("---\n\n");
+        
+        // ========== PATIENT-SPECIFIC DATA ==========
+        prompt.append("## Current Patient's ECG Analysis Results:\n\n");
+        prompt.append(String.format("**Diagnosis:** %s\n", diagnosis));
+        prompt.append(String.format("**Model Confidence:** %.1f%%\n\n", probability * 100));
+        
+        prompt.append("**Physiological Features Measured:**\n");
+        appendFeatureIfPresent(prompt, features, "heart_rate", "Heart Rate", "bpm");
+        appendFeatureIfPresent(prompt, features, "hrv_rmssd", "HRV (RMSSD)", "ms");
+        appendFeatureIfPresent(prompt, features, "qrs_duration", "QRS Duration", "s");
+        appendFeatureIfPresent(prompt, features, "r_amplitude", "R Wave Amplitude", "");
+        appendFeatureIfPresent(prompt, features, "signal_energy", "Signal Energy", "");
+        appendFeatureIfPresent(prompt, features, "r_peaks_count", "R Peaks Count", "");
+        
+        prompt.append("\n");
+        
+        // ========== TASK & OUTPUT FORMAT ==========
+        prompt.append("## Your Task:\n\n");
+        prompt.append("Using the Chain-of-Thought reasoning process described above, analyze THIS specific patient's data. ");
+        prompt.append("Then generate a response in Vietnamese that follows the exact structure shown in the examples.\n\n");
+        
+        prompt.append("**CRITICAL Requirements:**\n");
+        prompt.append("1. Output language: **VIETNAMESE ONLY** (instructions are in English, but your JSON response MUST be Vietnamese)\n");
+        prompt.append("2. Tone: Warm, caring, like a kind doctor talking to a family member with no medical background\n");
+        prompt.append("3. Vocabulary: Use everyday words, NOT medical jargon (e.g., say 'tim đập nhanh' not 'tachycardia')\n");
+        prompt.append("4. Specificity: Reference the ACTUAL feature values from this patient (e.g., 'nhịp tim 105' not 'nhịp tim hơi nhanh')\n");
+        prompt.append("5. Analogies: Use relatable comparisons (heart like a clock, electrical system like house wiring, etc.)\n");
+        prompt.append("6. Balance: Be honest about concerns but avoid causing panic; be reassuring when appropriate but never dismiss real risks\n\n");
+        
+        prompt.append("**JSON Response Format:**\n");
+        prompt.append("```json\n");
+        prompt.append("{\n");
+        prompt.append("  \"summary\": \"1-2 câu tóm tắt tình trạng tim mạch bằng tiếng Việt dễ hiểu\",\n");
+        prompt.append("  \"details\": \"Giải thích chi tiết các chỉ số ECG, ý nghĩa của chúng, và mối liên hệ với chẩn đoán. Sử dụng ngôn ngữ đời thường, có ví dụ minh họa. Phải đề cập cụ thể đến các giá trị đo được của bệnh nhân này.\",\n");
+        prompt.append("  \"recommendations\": \"Khuyến nghị cụ thể cho bệnh nhân (lưu ý: không thay thế lời khuyên của bác sĩ)\",\n");
+        prompt.append("  \"risk_level\": \"low/medium/high\",\n");
+        prompt.append("  \"next_steps\": \"Các bước tiếp theo bệnh nhân nên thực hiện, thời gian cụ thể nếu cần khám bác sĩ\"\n");
+        prompt.append("}\n");
+        prompt.append("```\n\n");
+        
+        prompt.append("**CRITICAL: Return ONLY the JSON object. Do NOT add any text before or after. Do NOT wrap in an array.**");
         
         return prompt.toString();
+    }
+    
+    /**
+     * Helper method to append physiological feature to prompt if present
+     */
+    private void appendFeatureIfPresent(StringBuilder prompt, Map<String, Object> features, 
+                                       String key, String label, String unit) {
+        if (features.containsKey(key) && features.get(key) != null) {
+            String value = String.valueOf(features.get(key));
+            if (unit != null && !unit.isEmpty()) {
+                prompt.append(String.format("- %s: %s %s\n", label, value, unit));
+            } else {
+                prompt.append(String.format("- %s: %s\n", label, value));
+            }
+        }
     }
 }
