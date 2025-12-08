@@ -106,6 +106,7 @@ public class VectorStoreService {
             }
             
             // Upsert points to Qdrant
+            @SuppressWarnings("unused")
             Points.UpdateResult result = qdrantClient.upsertAsync(collectionName, points).get();
             
             log.info("Upserted {} documents to collection: {}", chunks.size(), collectionName);
