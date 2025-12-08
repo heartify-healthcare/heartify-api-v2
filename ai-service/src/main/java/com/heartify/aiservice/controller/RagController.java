@@ -19,7 +19,7 @@ import java.util.Map;
  * Provides endpoints for ingesting and managing medical knowledge documents
  */
 @RestController
-@RequestMapping("/api/v1/rag")
+@RequestMapping("/rag")
 @ConditionalOnProperty(name = "rag.enabled", havingValue = "true", matchIfMissing = true)
 public class RagController {
 
