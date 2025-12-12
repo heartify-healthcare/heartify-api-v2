@@ -282,12 +282,10 @@ public class LLMClient {
         prompt.append("- Cross-reference the detected diagnosis with the feature values\n");
         
         prompt.append("**Step 3: Explanation Strategy**\n");
-        // [MODIFIED] Positive Instruction: Focus on mechanism
         prompt.append("- Focus on **physiological mechanisms** (describe WHAT is happening physically in the heart).\n");
         prompt.append("- Translate medical phenomena into **plain, descriptive Vietnamese**.\n\n");
         
         prompt.append("**Step 4: Tone Calibration**\n");
-        // [MODIFIED] Positive Instruction: Define the desired persona clearly
         prompt.append("- Tone: **Professional, objective, and reassuringly calm**.\n");
         prompt.append("- Language: **Literal and precise**. Use specific descriptors rather than analogies or metaphors.\n");
         prompt.append("- Accessibility: Simple Vietnamese suitable for a general audience (Grade 6 reading level).\n\n");
@@ -360,7 +358,6 @@ public class LLMClient {
         
         prompt.append("**CRITICAL Requirements:**\n");
         prompt.append("1. Output language: **VIETNAMESE ONLY**.\n");
-        // [MODIFIED] Positive Instruction: Describe the style positively
         prompt.append("2. Style: **Data-driven and Literal**. Explain the direct physiological meaning of the indicators.\n"); 
         prompt.append("3. Specificity: You MUST explicitly mention the patient's specific values (e.g., 'Nhịp tim 105', 'QRS 0.08s').\n");
         prompt.append("4. Clarity: Ensure the explanation is self-contained and logical without relying on figures of speech.\n\n");
@@ -369,7 +366,6 @@ public class LLMClient {
         prompt.append("```json\n");
         prompt.append("{\n");
         prompt.append("  \"summary\": \"Tóm tắt ngắn gọn 1-2 câu về tình trạng.\",\n");
-        // [MODIFIED] Positive Instruction in comments
         prompt.append("  \"details\": \"Giải thích trực tiếp cơ chế sinh học và ý nghĩa các chỉ số một cách khách quan. Ví dụ: 'Chỉ số A cao phản ánh nhịp tim nhanh...'.\",\n"); 
         prompt.append("  \"recommendations\": \"Lời khuyên cụ thể.\",\n");
         prompt.append("  \"risk_level\": \"low/medium/high\",\n");
