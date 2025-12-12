@@ -62,6 +62,20 @@ public class LLMClient {
      * @return Map containing explanation response
      */
     public Map<String, Object> generateExplanation(String diagnosis, Double probability, Map<String, Object> features) {
+        return generateExplanation(diagnosis, probability, features, null);
+    }
+
+    /**
+     * Generate medical explanation using LLM (Gemini) with RAG and optional ECG image (Multimodal)
+     * 
+     * @param diagnosis ECG diagnosis from DL model
+     * @param probability Confidence probability
+     * @param features Physiological features extracted from ECG
+     * @param ecgImageBase64 Base64-encoded ECG signal image for multimodal analysis (can be null)
+     * @return Map containing explanation response
+     */
+    public Map<String, Object> generateExplanation(String diagnosis, Double probability, 
+                                                    Map<String, Object> features, String ecgImageBase64) {
         try {
             // Retrieve relevant medical context using RAG
             String retrievedContext = "";
@@ -73,12 +87,31 @@ public class LLMClient {
             // Build the prompt with RAG context
             String prompt = buildPrompt(diagnosis, probability, features, retrievedContext);
 
-            // Prepare request body for Gemini API
+            // Prepare request body for Gemini API (supports multimodal with image)
             Map<String, Object> requestBody = new HashMap<>();
             Map<String, Object> content = new HashMap<>();
-            Map<String, String> part = new HashMap<>();
-            part.put("text", prompt);
-            content.put("parts", List.of(part));
+            
+            // Build parts array - text prompt + optional image
+            List<Map<String, Object>> parts = new java.util.ArrayList<>();
+            
+            // Add text prompt part
+            Map<String, Object> textPart = new HashMap<>();
+            textPart.put("text", prompt);
+            parts.add(textPart);
+            
+            // Add ECG image part if available (Multimodal request)
+            boolean isMultimodal = ecgImageBase64 != null && !ecgImageBase64.isEmpty();
+            if (isMultimodal) {
+                Map<String, Object> imagePart = new HashMap<>();
+                Map<String, Object> inlineData = new HashMap<>();
+                inlineData.put("mimeType", "image/png");
+                inlineData.put("data", ecgImageBase64);
+                imagePart.put("inlineData", inlineData);
+                parts.add(imagePart);
+                log.debug("Added ECG image to multimodal request ({} characters)", ecgImageBase64.length());
+            }
+            
+            content.put("parts", parts);
             requestBody.put("contents", List.of(content));
             
             // Add generation config for JSON response
@@ -139,6 +172,7 @@ public class LLMClient {
             result.put("llm_model_version", 1); // Gemini 2.0 Flash Exp
             result.put("explanation", explanationContent);
             result.put("rag_enabled", ragEnabled);
+            result.put("multimodal", isMultimodal);
 
             return result;
 
@@ -218,6 +252,16 @@ public class LLMClient {
         prompt.append("You are an expert cardiologist AI assistant specializing in patient education. ");
         prompt.append("Your role is to translate complex ECG analysis into warm, empathetic, and easily understandable explanations ");
         prompt.append("for patients with ZERO medical knowledge, in Vietnamese language.\n\n");
+        
+        // ========== MULTIMODAL ECG IMAGE ANALYSIS INSTRUCTIONS ==========
+        prompt.append("## ECG Waveform Visual Analysis:\n");
+        prompt.append("If an ECG waveform image is provided alongside this text, you MUST:\n");
+        prompt.append("1. **Visually inspect** the ECG waveform to identify key patterns (P waves, QRS complexes, T waves, intervals)\n");
+        prompt.append("2. **Cross-reference** your visual observations with the numerical features provided below\n");
+        prompt.append("3. **Validate** that the AI diagnosis is consistent with what you observe in the waveform\n");
+        prompt.append("4. **Describe** specific visual patterns in your explanation (e.g., 'Nhìn vào hình ảnh, bạn có thể thấy các nhịp đập đều đặn...')\n");
+        prompt.append("5. Use the image to provide **more specific and accurate** medical insights\n\n");
+        prompt.append("If no image is provided, proceed with text-only analysis using the numerical data.\n\n");
         
         // ========== RAG CONTEXT ==========
         if (retrievedContext != null && !retrievedContext.isBlank()) {

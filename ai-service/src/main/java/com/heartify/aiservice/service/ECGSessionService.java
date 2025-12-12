@@ -75,10 +75,14 @@ public class ECGSessionService {
             @SuppressWarnings("unchecked")
             Map<String, Object> features = (Map<String, Object>) predictionResponse.get("features");
             
+            // Get ECG image for multimodal AI (transient, not stored in DB)
+            String ecgImageBase64 = (String) predictionResponse.get("ecg_image_base64");
+            
             Map<String, Object> explanationResponse = llmClient.generateExplanation(
                     diagnosis,
                     probability,
-                    features
+                    features,
+                    ecgImageBase64
             );
 
             // Step 5: All API calls succeeded - Now save to database

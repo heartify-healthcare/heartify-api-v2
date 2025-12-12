@@ -68,13 +68,18 @@ public class DLModelClient {
                 throw new AiServiceException("DL Model API returned null response");
             }
 
-            
             // Convert response to expected format
             Map<String, Object> result = new HashMap<>();
             result.put("model_version", response.get("modelVersion"));
             result.put("diagnosis", response.get("diagnosis"));
             result.put("probability", response.get("probability"));
             result.put("features", response.get("features"));
+            
+            // Extract Base64-encoded ECG image for multimodal AI (transient, not stored in DB)
+            String ecgImageBase64 = (String) response.get("ecgImageBase64");
+            if (ecgImageBase64 != null && !ecgImageBase64.isEmpty()) {
+                result.put("ecg_image_base64", ecgImageBase64);
+            }
 
             return result;
 
