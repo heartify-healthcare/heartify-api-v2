@@ -296,7 +296,7 @@ public class LLMClient {
         
         // ========== FEW-SHOT EXAMPLES ==========
         prompt.append("## Few-Shot Examples:\n\n");
-        prompt.append(" učen from these examples. Note: The output is **direct and practical**.\n\n");
+        prompt.append("Learn from these examples. Note: The output is **direct and practical**.\n\n");
         
         // Example 1: Sinus Tachycardia
         prompt.append("### Example 1:\n");
