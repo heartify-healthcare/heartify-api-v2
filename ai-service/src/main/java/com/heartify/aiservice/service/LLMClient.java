@@ -282,22 +282,23 @@ public class LLMClient {
         prompt.append("- Cross-reference the detected diagnosis with the feature values\n");
         
         prompt.append("**Step 3: Explanation Strategy**\n");
-        prompt.append("- Focus on WHAT is happening, not what it looks like (avoid metaphors).\n");
-        prompt.append("- Explain the direct physiological meaning of the abnormalities.\n\n");
+        // [MODIFIED] Positive Instruction: Focus on mechanism
+        prompt.append("- Focus on **physiological mechanisms** (describe WHAT is happening physically in the heart).\n");
+        prompt.append("- Translate medical phenomena into **plain, descriptive Vietnamese**.\n\n");
         
         prompt.append("**Step 4: Tone Calibration**\n");
-        prompt.append("- Tone: Professional, calm, direct, and easy to understand.\n");
-        prompt.append("- Language: Simple Vietnamese (6th-grade level).\n");
-        prompt.append("- **STRICTLY AVOID** flowery language, excessive adjectives, or poetic comparisons (e.g., do NOT say 'heart is like a clock', 'orchestra', 'house wiring').\n");
-        prompt.append("- **STRICTLY AVOID** overly emotional or dramatic phrases.\n\n");
+        // [MODIFIED] Positive Instruction: Define the desired persona clearly
+        prompt.append("- Tone: **Professional, objective, and reassuringly calm**.\n");
+        prompt.append("- Language: **Literal and precise**. Use specific descriptors rather than analogies or metaphors.\n");
+        prompt.append("- Accessibility: Simple Vietnamese suitable for a general audience (Grade 6 reading level).\n\n");
         
         prompt.append("---\n\n");
         
         // ========== FEW-SHOT EXAMPLES ==========
         prompt.append("## Few-Shot Examples:\n\n");
-        prompt.append("Learn from these examples. Note: The output is **direct and practical**.\n\n");
+        prompt.append(" učen from these examples. Note: The output is **direct and practical**.\n\n");
         
-        // Example 1: Sinus Tachycardia (Revised - Direct style)
+        // Example 1: Sinus Tachycardia
         prompt.append("### Example 1:\n");
         prompt.append("**Input:**\n");
         prompt.append("- Diagnosis: Sinus Tachycardia\n");
@@ -316,7 +317,7 @@ public class LLMClient {
         prompt.append("}\n");
         prompt.append("```\n\n");
         
-        // Example 2: Atrial Fibrillation (Revised - Direct style)
+        // Example 2: Atrial Fibrillation
         prompt.append("### Example 2:\n");
         prompt.append("**Input:**\n");
         prompt.append("- Diagnosis: Atrial Fibrillation\n");
@@ -359,23 +360,25 @@ public class LLMClient {
         
         prompt.append("**CRITICAL Requirements:**\n");
         prompt.append("1. Output language: **VIETNAMESE ONLY**.\n");
-        prompt.append("2. Style: **Direct, clear, and grounded in data**. Explain 'what it means', not 'what it represents'.\n");
-        prompt.append("3. Vocabulary: Use simple words suitable for general public, but maintain accuracy.\n");
-        prompt.append("4. Specificity: You MUST mention the specific values (e.g., 'Nhịp tim 105', 'QRS 0.08s').\n");
-        prompt.append("5. **NO METAPHORS**: Do not compare the heart to mechanical objects, houses, or orchestras.\n\n");
+        // [MODIFIED] Positive Instruction: Describe the style positively
+        prompt.append("2. Style: **Data-driven and Literal**. Explain the direct physiological meaning of the indicators.\n"); 
+        prompt.append("3. Specificity: You MUST explicitly mention the patient's specific values (e.g., 'Nhịp tim 105', 'QRS 0.08s').\n");
+        prompt.append("4. Clarity: Ensure the explanation is self-contained and logical without relying on figures of speech.\n\n");
         
         prompt.append("**JSON Response Format:**\n");
         prompt.append("```json\n");
         prompt.append("{\n");
         prompt.append("  \"summary\": \"Tóm tắt ngắn gọn 1-2 câu về tình trạng.\",\n");
-        prompt.append("  \"details\": \"Giải thích trực tiếp ý nghĩa các chỉ số. Ví dụ: 'Chỉ số A cao cho thấy tim đang đập nhanh...'. KHÔNG dùng văn phong so sánh ví von.\",\n"); // Nhắc lại trong format
+        // [MODIFIED] Positive Instruction in comments
+        prompt.append("  \"details\": \"Giải thích trực tiếp cơ chế sinh học và ý nghĩa các chỉ số một cách khách quan. Ví dụ: 'Chỉ số A cao phản ánh nhịp tim nhanh...'.\",\n"); 
         prompt.append("  \"recommendations\": \"Lời khuyên cụ thể.\",\n");
         prompt.append("  \"risk_level\": \"low/medium/high\",\n");
         prompt.append("  \"next_steps\": \"Hành động tiếp theo.\"\n");
         prompt.append("}\n");
         prompt.append("```\n\n");
         
-        prompt.append("**CRITICAL: Return ONLY the JSON object.**");
+        // Keep this constraint because it is technically critical for the parser
+        prompt.append("**CRITICAL: Return ONLY the raw JSON object.**");
         
         return prompt.toString();
     }
