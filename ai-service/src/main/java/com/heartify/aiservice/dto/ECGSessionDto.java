@@ -19,6 +19,9 @@ public class ECGSessionDto {
     private ECGRecordingDto ecgRecording;
     private PredictionDto prediction;
     private ExplanationDto explanation;
+    
+    // Latency evaluation metrics
+    private EvaluationMetricsDto evaluations;
 
     public ECGSessionDto() {
     }
@@ -103,6 +106,14 @@ public class ECGSessionDto {
         this.explanation = explanation;
     }
 
+    public EvaluationMetricsDto getEvaluations() {
+        return evaluations;
+    }
+
+    public void setEvaluations(EvaluationMetricsDto evaluations) {
+        this.evaluations = evaluations;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -164,6 +175,11 @@ public class ECGSessionDto {
             return this;
         }
 
+        public Builder evaluations(EvaluationMetricsDto evaluations) {
+            dto.evaluations = evaluations;
+            return this;
+        }
+
         public ECGSessionDto build() {
             return dto;
         }
@@ -178,6 +194,9 @@ public class ECGSessionDto {
 
         @NotNull(message = "Sampling rate is required")
         private Integer samplingRate;
+        
+        // Optional: Client timestamp when request was sent (Unix ms)
+        private Long requestedAt;
 
         public CreateECGSessionRequest() {
         }
@@ -204,6 +223,14 @@ public class ECGSessionDto {
 
         public void setSamplingRate(Integer samplingRate) {
             this.samplingRate = samplingRate;
+        }
+
+        public Long getRequestedAt() {
+            return requestedAt;
+        }
+
+        public void setRequestedAt(Long requestedAt) {
+            this.requestedAt = requestedAt;
         }
     }
 }

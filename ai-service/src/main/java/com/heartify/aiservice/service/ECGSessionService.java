@@ -2,6 +2,7 @@ package com.heartify.aiservice.service;
 
 import com.heartify.aiservice.dto.ECGRecordingDto;
 import com.heartify.aiservice.dto.ECGSessionDto;
+import com.heartify.aiservice.dto.EvaluationMetricsDto;
 import com.heartify.aiservice.dto.ExplanationDto;
 import com.heartify.aiservice.dto.PredictionDto;
 import com.heartify.aiservice.entity.ECGRecording;
@@ -57,17 +58,33 @@ public class ECGSessionService {
         Prediction savedPrediction = null;
         Explanation savedExplanation = null;
         
+        // === Latency Tracking ===
+        long startTime = System.currentTimeMillis();
+        Long tUpload = null;
+        long tDenoise = 0;
+        long tClassify = 0;
+        long tLlm = 0;
+        
+        // Calculate upload time if requestedAt is provided
+        if (request.getRequestedAt() != null) {
+            tUpload = startTime - request.getRequestedAt();
+        }
+        
         try {
             // Step 1: Extract raw ECG signal from request
             List<Double> rawEcgSignal = extractECGSignal(request.getRawData());
             
             // Step 2: Call Denoising Model to clean ECG signal
+            long denoiseStart = System.currentTimeMillis();
             Map<String, Object> denoisingResponse = denoisingClient.denoise(rawEcgSignal);
+            tDenoise = System.currentTimeMillis() - denoiseStart;
             @SuppressWarnings("unchecked")
             List<Double> denoisedSignal = (List<Double>) denoisingResponse.get("denoised_signal");
             
             // Step 3: Call Deep Learning Model for Prediction using denoised signal
+            long classifyStart = System.currentTimeMillis();
             Map<String, Object> predictionResponse = dlModelClient.predict(denoisedSignal);
+            tClassify = System.currentTimeMillis() - classifyStart;
             
             // Step 4: Call LLM API for Explanation
             String diagnosis = (String) predictionResponse.get("diagnosis");
@@ -78,12 +95,14 @@ public class ECGSessionService {
             // Get ECG image for multimodal AI (transient, not stored in DB)
             String ecgImageBase64 = (String) predictionResponse.get("ecg_image_base64");
             
+            long llmStart = System.currentTimeMillis();
             Map<String, Object> explanationResponse = llmClient.generateExplanation(
                     diagnosis,
                     probability,
                     features,
                     ecgImageBase64
             );
+            tLlm = System.currentTimeMillis() - llmStart;
 
             // Step 5: All API calls succeeded - Now save to database
             
@@ -129,7 +148,16 @@ public class ECGSessionService {
                     .build();
             ECGSession savedSession = ecgSessionRepository.save(session);
 
-            return mapToDetailedDto(savedSession, savedRecording, savedPrediction, savedExplanation);
+            // Build evaluation metrics
+            EvaluationMetricsDto evaluations = EvaluationMetricsDto.builder()
+                    .tUpload(tUpload)
+                    .tDenoise(tDenoise)
+                    .tClassify(tClassify)
+                    .tLlm(tLlm)
+                    .responsedAt(System.currentTimeMillis())
+                    .build();
+
+            return mapToDetailedDto(savedSession, savedRecording, savedPrediction, savedExplanation, evaluations);
 
         } catch (Exception e) {
             
@@ -236,6 +264,12 @@ public class ECGSessionService {
 
     private ECGSessionDto mapToDetailedDto(ECGSession session, ECGRecording recording,
                                            Prediction prediction, Explanation explanation) {
+        return mapToDetailedDto(session, recording, prediction, explanation, null);
+    }
+
+    private ECGSessionDto mapToDetailedDto(ECGSession session, ECGRecording recording,
+                                           Prediction prediction, Explanation explanation,
+                                           EvaluationMetricsDto evaluations) {
         return ECGSessionDto.builder()
                 .id(session.getId())
                 .userId(session.getUserId())
@@ -247,6 +281,7 @@ public class ECGSessionService {
                 .ecgRecording(mapRecordingToDto(recording))
                 .prediction(mapPredictionToDto(prediction))
                 .explanation(mapExplanationToDto(explanation))
+                .evaluations(evaluations)
                 .build();
     }
 
