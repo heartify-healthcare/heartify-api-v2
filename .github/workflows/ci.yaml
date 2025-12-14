@@ -5,87 +5,24 @@ on:
     branches: [ "feat/dockerfile", "develop", "main" ]
   pull_request:
     branches: [ "develop", "main" ]
-  workflow_dispatch:
-    # THÊM: Input để tùy chọn force build
-    inputs:
-      force_build_all:
-        description: 'Force build ALL services (Ignore changes)?'
-        required: true
-        default: false
-        type: boolean
+  workflow_dispatch: 
+    # Giữ lại để bạn có thể bấm chạy thủ công nếu muốn
 
 env:
   AWS_REGION: ap-southeast-1
 
 jobs:
   # ====================================================
-  # JOB 1: DETECT CHANGES HOẶC SET ALL
-  # ====================================================
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      # Output cuối cùng sẽ được quyết định ở bước "Determine Final Matrix"
-      matrix: ${{ steps.final-matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2 
-          submodules: recursive
-          token: ${{ secrets.SUBMODULE_TOKEN }}
-
-      # Bước 1: Vẫn chạy detect changes như bình thường
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v45
-        with:
-          json: true
-          escape_json: false
-          files_yaml: |
-            api-gateway: 
-              - api-gateway/**
-            config-server: 
-              - config-server/**
-            eureka-server: 
-              - eureka-server/**
-            user-service: 
-              - user-service/**
-            ai-service: 
-              - ai-service/**
-
-      # Bước 2: Quyết định Matrix cuối cùng
-      - name: Determine Final Matrix
-        id: final-matrix
-        run: |
-          # Kiểm tra xem người dùng có chọn Force Build không
-          if [[ "${{ inputs.force_build_all }}" == "true" ]]; then
-            echo "🚀 FORCE BUILD DETECTED: Building ALL services..."
-            # Gán cứng danh sách tất cả service vào đây (JSON Array chuẩn)
-            echo 'matrix=["api-gateway","config-server","eureka-server","user-service","ai-service"]' >> $GITHUB_OUTPUT
-          
-          else
-            echo "🔍 Standard Change Detection Mode..."
-            CHANGED_KEYS='${{ steps.changed-files.outputs.changed_keys }}'
-            
-            # Nếu không có thay đổi nào, tj-actions có thể trả về rỗng, ta gán là mảng rỗng []
-            if [[ -z "$CHANGED_KEYS" || "$CHANGED_KEYS" == "null" ]]; then
-              echo "matrix=[]" >> $GITHUB_OUTPUT
-            else
-              echo "matrix=$CHANGED_KEYS" >> $GITHUB_OUTPUT
-            fi
-          fi
-
-  # ====================================================
-  # JOB 2: BUILD & PUSH
+  # BUILD & PUSH ALL SERVICES
+  # (Không check thay đổi, luôn chạy hết danh sách)
   # ====================================================
   build-and-deploy:
-    needs: changes
     runs-on: ubuntu-latest
-    # Chỉ chạy nếu matrix không rỗng (tránh lỗi cú pháp JSON)
-    if: ${{ needs.changes.outputs.matrix != '[]' && needs.changes.outputs.matrix != '' }}
     strategy:
       fail-fast: false
       matrix:
-        service: ${{ fromJson(needs.changes.outputs.matrix) }}
+        # Gán cứng danh sách tất cả các service tại đây
+        service: [api-gateway, config-server, eureka-server, user-service, ai-service]
 
     steps:
       - name: Checkout code
@@ -105,7 +42,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }} # Dùng secrets.AWS_REGION cho đồng bộ (hoặc env.AWS_REGION tùy setup của bạn)
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -118,17 +55,17 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           cd ${{ matrix.service }}
-          echo "Building service: ${{ matrix.service }}..."
+          echo "🚀 Building service: ${{ matrix.service }}..."
           
           # Build
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           
-          # Push SHA Tag
+          # Push SHA Tag (Commit ID)
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
           # Push Latest Tag (Chỉ áp dụng cho nhánh main)
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "Tagging latest..."
+            echo "🏷️ Tagging latest..."
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           fi
