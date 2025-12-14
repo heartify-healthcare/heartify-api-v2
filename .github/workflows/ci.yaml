@@ -1,69 +1,171 @@
-name: Backend Microservices CI/CD
+# name: Backend Microservices CI/CD
+
+# on:
+#   push:
+#     branches: [ "feat/dockerfile", "develop", "main" ]
+#   pull_request:
+#     branches: [ "develop", "main" ]
+#   workflow_dispatch:
+#     # Vẫn giữ input nếu muốn chạy thủ công sau này (tùy chọn)
+
+# env:
+#   AWS_REGION: ap-southeast-1
+
+# jobs:
+#   # ====================================================
+#   # JOB 1: DETECT CHANGES (Sử dụng tj-actions)
+#   # ====================================================
+#   changes:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       # Action sẽ trả về JSON danh sách các key thay đổi (vd: ["api-gateway", "user-service"])
+#       matrix: ${{ steps.changed-files.outputs.changed_keys }}
+#     steps:
+#       - uses: actions/checkout@v4
+#         with:
+#           # QUAN TRỌNG: Cần fetch-depth để so sánh diff giữa các commit
+#           fetch-depth: 2 
+#           submodules: recursive
+#           token: ${{ secrets.SUBMODULE_TOKEN }}
+
+#       - name: Get changed files
+#         id: changed-files
+#         uses: tj-actions/changed-files@v45
+#         with:
+#           # Bật tính năng trả về định dạng JSON cho Matrix
+#           json: true
+#           # Nếu chạy thủ công workflow_dispatch, coi như tất cả đều thay đổi (để force build)
+#           # Nếu bạn không muốn logic này thì xóa dòng escape_json đi
+#           escape_json: false
+          
+#           # Định nghĩa các nhóm file (Key: Pattern)
+#           files_yaml: |
+#             api-gateway: 
+#               - api-gateway/**
+#             config-server: 
+#               - config-server/**
+#             eureka-server: 
+#               - eureka-server/**
+#             user-service: 
+#               - user-service/**
+#             ai-service: 
+#               - ai-service/**
+
+#   # ====================================================
+#   # JOB 2: BUILD & PUSH
+#   # ====================================================
+#   build-and-deploy:
+#     needs: changes
+#     runs-on: ubuntu-latest
+#     # Logic quan trọng: Chỉ chạy nếu output matrix không rỗng và khác '[]'
+#     if: ${{ needs.changes.outputs.matrix != '[]' && needs.changes.outputs.matrix != '' }}
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         # Action tj-actions trả về output changed_keys là mảng JSON chuẩn, dùng thẳng luôn
+#         service: ${{ fromJson(needs.changes.outputs.matrix) }}
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#         with:
+#           submodules: recursive
+#           token: ${{ secrets.SUBMODULE_TOKEN }}
+
+#       - name: Set up JDK 21
+#         uses: actions/setup-java@v4
+#         with:
+#           java-version: '21'
+#           distribution: 'temurin'
+#           # Đã bỏ cache maven để tránh warning
+
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ secrets.AWS_REGION }}
+
+#       - name: Login to Amazon ECR
+#         id: login-ecr
+#         uses: aws-actions/amazon-ecr-login@v2
+
+#       - name: Build and Push Docker Image
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           ECR_REPOSITORY: heartify/${{ matrix.service }}
+#           IMAGE_TAG: ${{ github.sha }}
+#         run: |
+#           cd ${{ matrix.service }}
+#           echo "Building service: ${{ matrix.service }}..."
+          
+#           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+#           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+#           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+#             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+#             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+#           fi
+
+name: Manual Build & Push Service
 
 on:
-  push:
-    branches: [ "feat/dockerfile", "develop", "main" ]
-  pull_request:
-    branches: [ "develop", "main" ]
   workflow_dispatch:
-    # Vẫn giữ input nếu muốn chạy thủ công sau này (tùy chọn)
+    inputs:
+      # Tạo dropdown menu để chọn service
+      service_name:
+        description: 'Select Service to Build'
+        required: true
+        default: 'api-gateway'
+        type: choice
+        options:
+          - api-gateway
+          - config-server
+          - eureka-server
+          - user-service
+          - ai-service
+          - ALL_SERVICES
+      # Tùy chọn: Có muốn gắn tag "latest" không?
+      push_latest:
+        description: 'Tag as latest?'
+        required: true
+        type: boolean
+        default: true
 
 env:
   AWS_REGION: ap-southeast-1
 
 jobs:
   # ====================================================
-  # JOB 1: DETECT CHANGES (Sử dụng tj-actions)
+  # JOB 1: PREPARE MATRIX
+  # (Xử lý input để quyết định build 1 cái hay tất cả)
   # ====================================================
-  changes:
+  setup-matrix:
     runs-on: ubuntu-latest
     outputs:
-      # Action sẽ trả về JSON danh sách các key thay đổi (vd: ["api-gateway", "user-service"])
-      matrix: ${{ steps.changed-files.outputs.changed_keys }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          # QUAN TRỌNG: Cần fetch-depth để so sánh diff giữa các commit
-          fetch-depth: 2 
-          submodules: recursive
-          token: ${{ secrets.SUBMODULE_TOKEN }}
-
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v45
-        with:
-          # Bật tính năng trả về định dạng JSON cho Matrix
-          json: true
-          # Nếu chạy thủ công workflow_dispatch, coi như tất cả đều thay đổi (để force build)
-          # Nếu bạn không muốn logic này thì xóa dòng escape_json đi
-          escape_json: false
-          
-          # Định nghĩa các nhóm file (Key: Pattern)
-          files_yaml: |
-            api-gateway: 
-              - api-gateway/**
-            config-server: 
-              - config-server/**
-            eureka-server: 
-              - eureka-server/**
-            user-service: 
-              - user-service/**
-            ai-service: 
-              - ai-service/**
+      - id: set-matrix
+        run: |
+          if [ "${{ inputs.service_name }}" == "ALL_SERVICES" ]; then
+            # Nếu chọn ALL, trả về mảng JSON chứa tất cả tên service
+            echo 'matrix=["api-gateway","config-server","eureka-server","user-service","ai-service"]' >> $GITHUB_OUTPUT
+          else
+            # Nếu chọn 1 cái, trả về mảng JSON chứa 1 phần tử
+            echo 'matrix=["${{ inputs.service_name }}"]' >> $GITHUB_OUTPUT
+          fi
 
   # ====================================================
   # JOB 2: BUILD & PUSH
   # ====================================================
-  build-and-deploy:
-    needs: changes
+  manual-build:
+    needs: setup-matrix
     runs-on: ubuntu-latest
-    # Logic quan trọng: Chỉ chạy nếu output matrix không rỗng và khác '[]'
-    if: ${{ needs.changes.outputs.matrix != '[]' && needs.changes.outputs.matrix != '' }}
     strategy:
       fail-fast: false
       matrix:
-        # Action tj-actions trả về output changed_keys là mảng JSON chuẩn, dùng thẳng luôn
-        service: ${{ fromJson(needs.changes.outputs.matrix) }}
+        # Lấy danh sách service từ job setup-matrix bên trên
+        service: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
 
     steps:
       - name: Checkout code
@@ -77,14 +179,13 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          # Đã bỏ cache maven để tránh warning
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }} # Lưu ý: File cũ bạn dùng secrets.AWS_REGION, check lại xem là secrets hay env
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -97,12 +198,17 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           cd ${{ matrix.service }}
-          echo "Building service: ${{ matrix.service }}..."
+          echo "🚀 Starting manual build for: ${{ matrix.service }}..."
           
+          # Build Image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          
+          # Push Image với tag SHA (commit id)
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          # Logic gắn tag latest dựa trên input checkbox
+          if [[ "${{ inputs.push_latest }}" == "true" ]]; then
+            echo "🏷️ Tagging and pushing 'latest'..."
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           fi
