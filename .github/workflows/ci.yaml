@@ -64,8 +64,8 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
           # Push Latest Tag (Chỉ áp dụng cho nhánh main)
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          # if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "🏷️ Tagging latest..."
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          fi
+          # fi
