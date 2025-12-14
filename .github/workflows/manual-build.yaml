@@ -1,0 +1,105 @@
+name: Manual Build & Push Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      # Tạo dropdown menu để chọn service
+      service_name:
+        description: 'Select Service to Build'
+        required: true
+        default: 'api-gateway'
+        type: choice
+        options:
+          - api-gateway
+          - config-server
+          - eureka-server
+          - user-service
+          - ai-service
+          - ALL_SERVICES
+      # Tùy chọn: Có muốn gắn tag "latest" không?
+      push_latest:
+        description: 'Tag as latest?'
+        required: true
+        type: boolean
+        default: true
+
+env:
+  AWS_REGION: ap-southeast-1
+
+jobs:
+  # ====================================================
+  # JOB 1: PREPARE MATRIX
+  # (Xử lý input để quyết định build 1 cái hay tất cả)
+  # ====================================================
+  setup-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          if [ "${{ inputs.service_name }}" == "ALL_SERVICES" ]; then
+            # Nếu chọn ALL, trả về mảng JSON chứa tất cả tên service
+            echo 'matrix=["api-gateway","config-server","eureka-server","user-service","ai-service"]' >> $GITHUB_OUTPUT
+          else
+            # Nếu chọn 1 cái, trả về mảng JSON chứa 1 phần tử
+            echo 'matrix=["${{ inputs.service_name }}"]' >> $GITHUB_OUTPUT
+          fi
+
+  # ====================================================
+  # JOB 2: BUILD & PUSH
+  # ====================================================
+  manual-build:
+    needs: setup-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Lấy danh sách service từ job setup-matrix bên trên
+        service: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }} # Lưu ý: File cũ bạn dùng secrets.AWS_REGION, check lại xem là secrets hay env
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: heartify/${{ matrix.service }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd ${{ matrix.service }}
+          echo "🚀 Starting manual build for: ${{ matrix.service }}..."
+          
+          # Build Image
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          
+          # Push Image với tag SHA (commit id)
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+          # Logic gắn tag latest dựa trên input checkbox
+          if [[ "${{ inputs.push_latest }}" == "true" ]]; then
+            echo "🏷️ Tagging and pushing 'latest'..."
+            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          fi
