@@ -1,6 +1,8 @@
 name: Manual Build & Push Service
 
 on:
+  push:
+    branches: [ "feat/dockerfile", "develop", "main" ]
   workflow_dispatch:
     inputs:
       # Tạo dropdown menu để chọn service
