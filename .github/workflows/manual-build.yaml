@@ -5,7 +5,6 @@ on:
     branches: [ "feat/dockerfile", "develop", "main" ]
   workflow_dispatch:
     inputs:
-      # Tạo dropdown menu để chọn service
       service_name:
         description: 'Select Service to Build'
         required: true
@@ -18,7 +17,6 @@ on:
           - user-service
           - ai-service
           - ALL_SERVICES
-      # Tùy chọn: Có muốn gắn tag "latest" không?
       push_latest:
         description: 'Tag as latest?'
         required: true
@@ -30,8 +28,7 @@ env:
 
 jobs:
   # ====================================================
-  # JOB 1: PREPARE MATRIX
-  # (Xử lý input để quyết định build 1 cái hay tất cả)
+  # JOB 1: CHUẨN BỊ MATRIX (Đã Fix lỗi cú pháp JSON)
   # ====================================================
   setup-matrix:
     runs-on: ubuntu-latest
@@ -41,12 +38,16 @@ jobs:
       - id: set-matrix
         run: |
           if [ "${{ inputs.service_name }}" == "ALL_SERVICES" ]; then
-            # Nếu chọn ALL, trả về mảng JSON chứa tất cả tên service
+            # JSON Array chuẩn cho tất cả service
             echo 'matrix=["api-gateway","config-server","eureka-server","user-service","ai-service"]' >> $GITHUB_OUTPUT
           else
-            # Nếu chọn 1 cái, trả về mảng JSON chứa 1 phần tử
-            echo 'matrix=["${{ inputs.service_name }}"]' >> $GITHUB_OUTPUT
+            # JSON Array chuẩn cho 1 service (Lưu ý dấu ngoặc kép được escape kỹ)
+            echo "matrix=[\"${{ inputs.service_name }}\"]" >> $GITHUB_OUTPUT
           fi
+      
+      # [DEBUG] In ra để kiểm tra xem biến có giá trị không
+      - name: Debug Matrix Output
+        run: echo "Generated Matrix: ${{ steps.set-matrix.outputs.matrix }}"
 
   # ====================================================
   # JOB 2: BUILD & PUSH
@@ -54,10 +55,11 @@ jobs:
   manual-build:
     needs: setup-matrix
     runs-on: ubuntu-latest
+    # Thêm check: Chỉ chạy khi matrix không rỗng
+    if: ${{ needs.setup-matrix.outputs.matrix != '' && needs.setup-matrix.outputs.matrix != '[]' }}
     strategy:
       fail-fast: false
       matrix:
-        # Lấy danh sách service từ job setup-matrix bên trên
         service: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
 
     steps:
@@ -78,28 +80,41 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }} # Lưu ý: File cũ bạn dùng secrets.AWS_REGION, check lại xem là secrets hay env
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # [DEBUG] Kiểm tra tên service trước khi build
+      - name: Debug Service Name
+        run: |
+          echo "Current Service: ${{ matrix.service }}"
+          if [ -z "${{ matrix.service }}" ]; then
+            echo "❌ ERROR: Service name is empty!"
+            exit 1
+          fi
+
       - name: Build and Push Docker Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          # Sửa lại reference để đảm bảo không bị lỗi cú pháp bash
           ECR_REPOSITORY: heartify/${{ matrix.service }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          # Chuyển vào thư mục service
           cd ${{ matrix.service }}
-          echo "🚀 Starting manual build for: ${{ matrix.service }}..."
           
-          # Build Image
+          echo "🚀 Starting manual build for: ${{ matrix.service }}..."
+          echo "Target Repo: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          
+          # Build
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           
-          # Push Image với tag SHA (commit id)
+          # Push SHA Tag
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-          # Logic gắn tag latest dựa trên input checkbox
+          # Push Latest Tag (nếu được chọn)
           if [[ "${{ inputs.push_latest }}" == "true" ]]; then
             echo "🏷️ Tagging and pushing 'latest'..."
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
