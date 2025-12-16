@@ -7,9 +7,9 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.io.InputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 
 @Service
 public class EmailService {
@@ -57,6 +57,9 @@ public class EmailService {
 
     private String loadTemplate(String templatePath) throws IOException {
         ClassPathResource resource = new ClassPathResource(templatePath);
-        return new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+        
+        try (InputStream inputStream = resource.getInputStream()) {
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }
