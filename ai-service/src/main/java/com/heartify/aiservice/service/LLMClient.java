@@ -361,7 +361,10 @@ public class LLMClient {
         prompt.append("2. Style: **Data-driven and Literal**. Explain the direct physiological meaning of the indicators.\n"); 
         prompt.append("3. Specificity: You MUST explicitly mention the patient's specific values (e.g., 'Nhịp tim 105', 'QRS 0.08s').\n");
         prompt.append("4. Clarity: Ensure the explanation is self-contained and logical without relying on figures of speech.\n\n");
-        
+        if (retrievedContext != null && !retrievedContext.isBlank()) {
+            prompt.append("5. Citation: If you use information from the 'Medical Reference Knowledge' section, you must mention it explicitly (e.g., 'Theo hướng dẫn y khoa...').\n");
+        }
+
         prompt.append("**JSON Response Format:**\n");
         prompt.append("```json\n");
         prompt.append("{\n");
