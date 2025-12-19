@@ -1,9 +1,3 @@
-Here is the updated `README.md` for **Heartify API v2**.
-
-I have revised the **Architecture**, **AI Integration**, and **Related Repositories** sections to accurately reflect the use of your two distinct Python AI microservices (`heartify-denoised-model` and `heartify-dl-model`) and their specific architectures (Attention U-Net and Wav2Vec2/ECG-FM), replacing the outdated v1 information.
-
----
-
 # Heartify Healthcare Platform API (v2)
 
 **A Microservices-based AIoT Backend for Cardiovascular Disease Prediction & Monitoring**
