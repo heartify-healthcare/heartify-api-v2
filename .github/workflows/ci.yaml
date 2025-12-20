@@ -2,7 +2,7 @@ name: Backend Microservices CI/CD
 
 on:
   push:
-    branches: [ "feat/dockerfile", "develop", "main" ]
+    branches: [ "feat/dockerfile", "develop", "main", "test"]
   pull_request:
     branches: [ "develop", "main" ]
   workflow_dispatch: 
